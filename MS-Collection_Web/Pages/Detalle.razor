@@ -1,0 +1,235 @@
+﻿@page "/producto-detalle/{id:int}"
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+@using MS_Collection_WbApi.Models
+@using MS_Collection_Web.Models
+@inject CarritoService carritoService
+@inject IJSRuntime JS
+
+@code {
+    [Parameter] public int id { get; set; }
+    Producto? producto;
+    int cantidad = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            producto = await Http.GetFromJsonAsync<Producto>($"https://localhost:44300/api/Producto/{id}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error al cargar el producto: " + ex.Message);
+        }
+    }
+
+    void IncrementarCantidad()
+    {
+        if (producto is null) return;
+        int enCarrito = carritoService.ObtenerCantidadEnCarrito(producto.Id);
+        int disponible = producto.StockActual ?? 0;
+
+        if (cantidad + enCarrito < disponible)
+            cantidad++;
+    }
+
+    void DecrementarCantidad()
+    {
+        if (cantidad > 1)
+            cantidad--;
+    }
+
+    async Task AgregarAlCarrito()
+    {
+        if (producto is null) return;
+
+        int enCarrito = carritoService.ObtenerCantidadEnCarrito(producto.Id);
+        int disponible = producto.StockActual ?? 0;
+
+        if (cantidad + enCarrito > disponible)
+        {
+            await JS.InvokeVoidAsync("alert", $"❌ Solo hay {disponible - enCarrito} unidades disponibles.");
+            return;
+        }
+
+        for (int i = 0; i < cantidad; i++)
+        {
+            carritoService.AgregarItem(producto);
+        }
+
+        await JS.InvokeVoidAsync("alert", $"✅ Se agregaron {cantidad} unidades de '{producto.Nombre}' al carrito.");
+        NavigationManager.NavigateTo("/Carrito");
+    }
+}
+
+<PageTitle>Detalle del Producto</PageTitle>
+
+<style>
+    .producto-detalle {
+        max-width: 1000px;
+        margin: 2rem auto;
+        padding: 2rem;
+        border-radius: 20px;
+        background-color: #f9f6f4;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        flex-direction: row;
+        gap: 2rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .producto-imagen {
+        flex: 1;
+        text-align: center;
+    }
+
+        .producto-imagen img {
+            max-width: 100%;
+            border-radius: 10px;
+        }
+
+        .producto-imagen .precio {
+            display: inline-block;
+            margin-top: 1rem;
+            background-color: #d9cfc9;
+            color: #5a2e25;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+    .producto-info {
+        flex: 1;
+    }
+
+        .producto-info h1 {
+            font-size: 1.8rem;
+            color: #38231b;
+            margin-bottom: 1.5rem;
+        }
+
+        .producto-info .meta {
+            margin-bottom: 1.5rem;
+        }
+
+            .producto-info .meta p {
+                margin: 0.3rem 0;
+                font-size: 0.95rem;
+            }
+
+                .producto-info .meta p strong {
+                    color: #1a1a1a;
+                }
+
+    .adicional {
+        margin-bottom: 1.5rem;
+    }
+
+        .adicional h3 {
+            font-size: 1.1rem;
+            margin-bottom: 0.8rem;
+            color: #1f1f1f;
+        }
+
+        .adicional p {
+            font-size: 0.95rem;
+            margin: 0.3rem 0;
+        }
+
+            .adicional p strong {
+                color: #1a1a1a;
+            }
+
+    .cantidad-control {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+        .cantidad-control button {
+            background-color: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 30px;
+            height: 30px;
+            font-weight: bold;
+            color: #5a2e25;
+            cursor: pointer;
+        }
+
+        .cantidad-control span {
+            padding: 0 0.5rem;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+    .btn-add {
+        background-color: #f0bda7;
+        border: none;
+        color: white;
+        font-weight: bold;
+        padding: 0.6rem 1.5rem;
+        border-radius: 25px;
+        font-size: 1rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        margin-top: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        .btn-add:hover {
+            background-color: #e1a892;
+        }
+
+    @@media (max-width: 768px) {
+        .producto-detalle {
+            flex-direction: column;
+        }
+    }
+</style>
+
+@if (producto is not null)
+{
+    <div class="producto-detalle">
+        <div class="producto-imagen">
+            <img src="@producto.ImagenURL" alt="@producto.Nombre" />
+            <div class="meta">
+                <p><strong>Categoría:</strong> @producto.CategoriaId</p>
+                <p><strong>Código:</strong> @producto.Codigo</p>
+            </div>
+            <div class="precio">
+                $@((producto.PrecioVenta ?? 0).ToString("N2"))
+            </div>
+        </div>
+
+        <div class="producto-info">
+            <h1>@producto.Nombre</h1>
+
+            <div class="adicional">
+                <h3>Información adicional</h3>
+                <p><strong>Descripción:</strong> @producto.Descripción</p>
+                <p><strong>Color:</strong> @producto.Color</p>
+                <p><strong>Material:</strong> @producto.Material</p>
+                <p><strong>Peso:</strong> @producto.Peso gramos</p>
+                <p><strong>Cantidad disponible:</strong> @((producto.StockActual ?? 0) - carritoService.ObtenerCantidadEnCarrito(producto.Id))</p>
+            </div>
+
+            <div class="cantidad-control">
+                <button @onclick="DecrementarCantidad">-</button>
+                <span>@cantidad</span>
+                <button @onclick="IncrementarCantidad">+</button>
+            </div>
+
+            <button class="btn-add" @onclick="AgregarAlCarrito">
+                <i class="bi bi-bag-fill"></i> Agregar
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    <p style="text-align:center; margin-top:2rem;">Cargando producto...</p>
+}

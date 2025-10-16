@@ -1,0 +1,254 @@
+﻿@page "/"
+
+@inject NavigationManager Navigation
+@inject HttpClient Http
+@layout Layout.EmptyLayout
+@inject IJSRuntime JS
+<div class="login-container">
+    <div class="login-box">
+        <div class="logo-circle">
+            <img src="/images/logo.png" alt="Logo de la empresa"   />
+        </div>
+        <h2>MS JOYERÍA Y RELOJERÍA</h2>
+
+        <div class="input-group-custom">
+			<i class="bi bi-person"></i><Login />
+            <input type="text" class="custom-input" placeholder="Usuario" @bind="usuario" />
+        </div>
+
+        <div class="input-group-custom">
+            <i class="bi bi-lock"></i>
+            <input type="password" class="custom-input" placeholder="Contraseña" @bind="contraseña" />
+        </div>
+
+        <button class="login-btn" @onclick="IniciarSesion">Iniciar Sesión</button>
+
+        <div class="divider"><span>o</span></div>
+
+ 
+    </div>
+</div>
+
+<style>
+    .login-container {
+        background: linear-gradient(to right, #c59180, #f4ebe7);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .login-box {
+        text-align: center;
+        max-width: 400px;
+        width: 100%;
+    }
+
+    .logo-circle {
+        width: 130px;
+        height: 130px;
+        margin: 0 auto 1.5rem auto;
+        background: linear-gradient(to bottom right, #c59180, #f4ebe7);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+    }
+
+
+        .logo-circle img {
+            width: 90px;
+            height: auto;
+        }
+
+    .login-box h2 {
+        font-size: 1rem;
+        font-weight: normal;
+        color: #6b6b6b;
+        margin-bottom: 1.2rem;
+        letter-spacing: 1px;
+    }
+
+    .input-group-custom {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+        .input-group-custom i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #c59180;
+            font-size: 18px;
+        }
+
+    .custom-input {
+        width: 100%;
+        padding: 0.6rem 1rem 0.6rem 2.5rem;
+        border: 1px solid white;
+        border-radius: 25px;
+        background-color: transparent;
+        font-size: 0.95rem;
+        color: #333;
+    }
+
+        .custom-input::placeholder {
+            color: #c59180;
+        }
+
+    .forgot-password {
+        text-align: center;
+        margin-top: 0.6rem;
+        margin-bottom: 1.5rem;
+    }
+
+        .forgot-password a {
+            text-decoration: none;
+            font-size: 0.85rem;
+            color: #6b6b6b;
+        }
+
+    .login-btn {
+        width: 100%;
+        background-color: #c59180;
+        border: 2px solid white;
+        color: white;
+        font-weight: bold;
+        padding: 0.6rem 1rem;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+        .login-btn:hover {
+            background-color: #a26c5e;
+        }
+
+    .divider {
+        margin: 1.5rem 0;
+        text-align: center;
+        position: relative;
+    }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
+
+        .divider span {
+            color: #999;
+            font-size: 0.85rem;
+            padding: 0 1rem;
+            background: linear-gradient(to right, #c59180, #f4ebe7);
+        }
+
+    .register-btn {
+        width: 100%;
+        background-color: #f4ebe7;
+        border: none;
+        color: #a26c5e;
+        font-weight: bold;
+        padding: 0.6rem 1rem;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+        .register-btn:hover {
+            background-color: #e2d1cb;
+        }
+</style>
+
+@code {
+    private string usuario;
+    private string contraseña;
+
+    private async Task IniciarSesion()
+    {
+        var loginRequest = new LoginRequest
+            {
+                User = usuario,
+                Password = contraseña
+            };
+
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/Usuario/login", loginRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var usuarioResponse = await response.Content.ReadFromJsonAsync<UsuarioResponse>();
+
+                if (usuarioResponse != null)
+                {
+                    var rol = usuarioResponse.Rol.ToLower();
+
+                    switch (rol)
+                    {
+                        case "admin":
+                            Navigation.NavigateTo("/Pedido"); // Ruta para administrador
+                            break;
+                        case "vendedor":
+                            Navigation.NavigateTo("/PedidoVendedor"); // Ruta para vendedor
+                            break;
+                        case "cliente":
+                            await JS.InvokeVoidAsync("alert", "Los usuarios de tipo cliente no pueden acceder.");
+                            break;
+                        default:
+                            await JS.InvokeVoidAsync("alert", $"Rol no reconocido: {usuarioResponse.Rol}");
+                            break;
+                    }
+                }
+                else
+                {
+                    await JS.InvokeVoidAsync("alert", "Respuesta inválida del servidor.");
+                }
+            }
+            else
+            {
+                var errorMessage = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Error: {errorMessage}");
+                await JS.InvokeVoidAsync("alert", "Credenciales incorrectos.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Excepción: {ex.Message}");
+            await JS.InvokeVoidAsync("alert", "Error en el servidor. Intente más tarde.");
+        }
+    }
+
+
+    public class UsuarioResponse
+    {
+        public string Nombre { get; set; }
+        public string Rol { get; set; }
+    }
+    private string mensajeError;
+}
+
+                 
+
+    @if (!string.IsNullOrEmpty(mensajeError))
+{
+    <div class="alert alert-danger">@mensajeError</div>
+}

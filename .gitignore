@@ -1,0 +1,34 @@
+# Compilados
+bin/
+obj/
+*/bin/
+*/obj/
+*.exe
+*.dll
+*.pdb
+*.cache
+*.log
+
+# WebView2 y otros temporales
+**/EBWebView/
+**/Crashpad/
+**/Default/
+
+# Configuración local
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Archivos de publicación
+/publish/
+/dist/
+/wwwroot/lib/
+
+# Sistema operativo
+Thumbs.db
+Desktop.ini
+
+# Archivos de entorno
+*.env
+appsettings.json

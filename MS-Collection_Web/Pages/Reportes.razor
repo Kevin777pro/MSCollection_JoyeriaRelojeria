@@ -1,0 +1,240 @@
+﻿@page "/reportes"
+@inject HttpClient Http
+@using MS_Collection_Web.Models
+@layout LigthLayout
+@using MS_Collection_Web.Models
+
+
+<h3 class="titulo-dashboard">Reportes / Dashboard</h3>
+
+<div class="dashboard-grid">
+    <div class="card" @onclick="@(() => MostrarModal("ventas-anio"))">
+        <ChartComponent Type="bar" Labels="labelsAnio" Data="dataAnio" Label="Ventas por año" />
+        <div class="titulo-card">Gráfica de ventas por año</div>
+        <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ExportarPdfAnio">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+        </button>
+    </div>
+
+    <div class="card" @onclick="@(() => MostrarModal("ventas-dia"))">
+        <ChartComponent Id="ventasDiaChart" Type="pie" Labels="labelsDia" Data="dataDia" Label="Ingresos del día" />
+        <div class="titulo-card">Ingresos del día</div>
+        <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ExportarPdfDia">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+        </button>
+    </div>
+
+    <div class="card" @onclick="@(() => MostrarModal("productos-mes"))">
+        <ChartComponent Id="topMesChart" Type="bar" Labels="labelsMes" Data="dataMes" Label="Ingresos por producto del mes" />
+        <div class="titulo-card">Producto del mes</div>
+        <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ExportarPdfMes">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+        </button>
+    </div>
+
+    <div class="card" @onclick="@(() => MostrarModal("ventas-mensuales"))">
+        <ChartComponent Id="ventasMensualChart" Type="line" Labels="labelsMensual" Data="dataMensual" Label="Ventas por mes" />
+        <div class="titulo-card">Ventas por mes</div>
+        <button class="btn btn-outline-secondary btn-sm mt-2" @onclick="ExportarPdfMensual">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+        </button>
+    </div>
+</div>
+
+
+@if (!string.IsNullOrEmpty(modalTipo))
+{
+    <div class="modal-fondo" @onclick="CerrarModal">
+        <div class="modal-contenido" @onclick:stopPropagation>
+            <h4>Detalle: @modalLabel</h4>
+            <ChartComponent Id="modalChart" Type="@modalTipo" Labels="modalLabels" Data="modalData" Label="@modalLabel" />
+            <button @onclick="CerrarModal">Cerrar</button>
+        </div>
+    </div>
+}
+
+@code {
+
+    string[] labelsAnio = [];
+    double[] dataAnio = [];
+
+    string[] labelsDia = [];
+    double[] dataDia = [];
+
+    string[] labelsMes = [];
+    double[] dataMes = [];
+
+    string[] labelsMensual = [];
+    double[] dataMensual = [];
+
+    string? modalTipo, modalLabel;
+    string[] modalLabels = [];
+    double[] modalData = [];
+
+    List<VentasDelDiaDTO> ventasDelDia = new();
+    List<ProductosTopMesDTO> productosMes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarVentasAnio();
+        await CargarIngresosDelDia();
+        await CargarIngresosPorProductoMes();
+        await CargarVentasMensuales();
+    }
+
+    async Task CargarVentasAnio()
+    {
+        var response = await Http.GetFromJsonAsync<List<VentasPorAnioDTO>>("https://localhost:44300/api/reportes/ventas-por-anio");
+        if (response != null)
+        {
+            labelsAnio = response.Select(r => r.Anio.ToString()).ToArray();
+            dataAnio = response.Select(r => (double)r.Total).ToArray();
+        }
+    }
+
+    async Task CargarIngresosDelDia()
+    {
+        var response = await Http.GetFromJsonAsync<List<VentasDelDiaDTO>>("https://localhost:44300/api/reportes/ventas-del-dia");
+        if (response != null)
+        {
+            ventasDelDia = response;
+            labelsDia = response.Select(r => r.Producto).ToArray();
+            dataDia = response.Select(r => (double)(r.Cantidad * r.PrecioVenta)).ToArray();
+        }
+    }
+
+    async Task CargarIngresosPorProductoMes()
+    {
+        var response = await Http.GetFromJsonAsync<List<ProductosTopMesDTO>>("https://localhost:44300/api/reportes/productos-top-mes");
+        if (response != null)
+        {
+            productosMes = response;
+            labelsMes = response.Select(r => r.Producto).ToArray();
+            dataMes = response.Select(r => (double)(r.Cantidad * r.PrecioVenta)).ToArray();
+        }
+    }
+
+    async Task CargarVentasMensuales()
+    {
+        var response = await Http.GetFromJsonAsync<List<VentasPorMesDTO>>("https://localhost:44300/api/reportes/ventas-por-mes");
+        if (response != null)
+        {
+            labelsMensual = response.Select(r => $"Mes {r.Mes}").ToArray();
+            dataMensual = response.Select(r => (double)r.Total).ToArray();
+        }
+    }
+
+    void MostrarModal(string tipo)
+    {
+        switch (tipo)
+        {
+            case "ventas-anio":
+                modalTipo = "bar";
+                modalLabel = "Ventas por año";
+                modalLabels = labelsAnio;
+                modalData = dataAnio;
+                break;
+            case "ventas-dia":
+                modalTipo = "pie";
+                modalLabel = "Ingresos del día";
+                modalLabels = labelsDia;
+                modalData = dataDia;
+                break;
+            case "productos-mes":
+                modalTipo = "bar";
+                modalLabel = "Ingresos por producto del mes";
+                modalLabels = labelsMes;
+                modalData = dataMes;
+                break;
+            case "ventas-mensuales":
+                modalTipo = "line";
+                modalLabel = "Ventas por mes";
+                modalLabels = labelsMensual;
+                modalData = dataMensual;
+                break;
+        }
+    }
+
+    void CerrarModal()
+    {
+        modalTipo = null;
+    }
+
+    [Inject] IJSRuntime JS { get; set; }
+
+    private async Task ExportarPdf()
+    {
+        var lineas = new List<string>();
+
+        for (int i = 0; i < labelsMes.Length; i++)
+        {
+            var texto = $"{labelsMes[i]} - {dataMes[i]:C}";
+            lineas.Add(texto);
+        }
+
+        await JS.InvokeVoidAsync("exportarPdf", "Producto del mes", lineas);
+    }
+    private async Task ExportarPdfAnio()
+    {
+        var lineas = labelsAnio.Select((label, i) => $"{label} - {dataAnio[i]:C}").ToList();
+        var total = dataAnio.Sum();
+        lineas.Add("");
+        lineas.Add($"Total ingreso: {total:C}");
+        await JS.InvokeVoidAsync("exportarPdf", "Ventas por año", lineas);
+    }
+
+
+    private async Task ExportarPdfDia()
+    {
+        var lineas = new List<string>();
+        int totalCantidad = 0;
+        double totalIngreso = 0;
+
+        foreach (var item in ventasDelDia)
+        {
+            lineas.Add($"{item.Producto} - Cantidad: {item.Cantidad} - Precio: {item.PrecioVenta:C} - Ingreso: {item.Ingreso:C}");
+            totalCantidad += item.Cantidad;
+            totalIngreso += (double)item.Ingreso;
+        }
+
+        lineas.Add(""); // Espacio
+        lineas.Add($"Total de unidades vendidas: {totalCantidad}");
+        lineas.Add($"Total ingresos del día: {totalIngreso:C}");
+
+        await JS.InvokeVoidAsync("exportarPdf", "Ingresos del día", lineas);
+    }
+
+
+    private async Task ExportarPdfMes()
+    {
+        var lineas = new List<string>();
+        int totalCantidad = 0;
+        double totalIngreso = 0;
+
+        foreach (var item in productosMes)
+        {
+            var ingreso = (double)(item.Cantidad * item.PrecioVenta);
+            totalCantidad += item.Cantidad;
+            totalIngreso += ingreso;
+            lineas.Add($"{item.Producto} - Cantidad: {item.Cantidad} - Ingreso: {ingreso:C}");
+        }
+
+        lineas.Add(""); // Línea vacía
+        lineas.Add($"Total de unidades vendidas: {totalCantidad}");
+        lineas.Add($"Total ingresos: {totalIngreso:C}");
+
+        await JS.InvokeVoidAsync("exportarPdf", "Producto del mes", lineas);
+    }
+
+
+    private async Task ExportarPdfMensual()
+    {
+        var lineas = labelsMensual.Select((label, i) => $"{label} - {dataMensual[i]:C}").ToList();
+        var total = dataMensual.Sum();
+        lineas.Add("");
+        lineas.Add($"Total ingreso anual: {total:C}");
+        await JS.InvokeVoidAsync("exportarPdf", "Ventas por mes", lineas);
+    }
+
+}
+

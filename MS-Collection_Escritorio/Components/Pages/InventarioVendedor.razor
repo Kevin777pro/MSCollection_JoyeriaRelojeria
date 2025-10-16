@@ -1,0 +1,202 @@
+﻿@page "/InventarioVendedor"
+@inject HttpClient Http
+@inject IJSRuntime JS
+@layout Layout.VendedorLayout
+
+<h3>Registrar Movimientos de Inventario</h3>
+
+<div class="mb-3">
+    <label>Producto</label>
+    <select class="form-select" @bind="nuevoMovimiento.ProductoId">
+        <option value="">Seleccione un producto</option>
+        @foreach (var producto in productos)
+        {
+            <option value="@producto.Id">@producto.Nombre</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label>Cantidad</label>
+    <input type="number" class="form-control" @bind="nuevoMovimiento.Cantidad" placeholder="Cantidad" min="1" />
+</div>
+
+<div class="mb-3">
+    <label>Tipo de movimiento</label>
+    <select class="form-select" @onchange="ActualizarTipoMovimiento">
+        <option value="1">Entrada</option>
+        <option value="0">Salida</option>
+    </select>
+</div>
+
+<div class="mb-3">
+    <label>Observación</label>
+    <input type="text" class="form-control" @bind="nuevoMovimiento.Observacion" placeholder="Observación" />
+</div>
+
+<button class="btn btn-primary" @onclick="AgregarMovimiento">Agregar a lista</button>
+
+<hr />
+
+<h5>Movimientos Agregados:</h5>
+@if (movimientos.Count == 0)
+{
+    <p>No hay movimientos aún.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Tipo</th>
+                <th>Observación</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in movimientos)
+            {
+                <tr>
+                    <td>@productos.FirstOrDefault(p => p.Id == m.ProductoId)?.Nombre</td>
+                    <td>@m.Cantidad</td>
+                    <td>@(m.EsEntrada ? "Entrada" : "Salida")</td>
+                    <td>@m.Observacion</td>
+                    <td><button class="btn btn-sm btn-danger" @onclick="() => RemoverMovimiento(m)">Quitar</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <button class="btn btn-success" @onclick="EnviarMovimientos">Registrar todos</button>
+}
+
+@code {
+
+    private List<ProductoDto> productos = new();
+    private List<MovimientoInventarioDto> movimientos = new();
+    private MovimientoInventarioDto nuevoMovimiento = new() { EsEntrada = true };
+    private int usuarioId = 12;
+
+    protected override async Task OnInitializedAsync()
+    {
+        productos = await Http.GetFromJsonAsync<List<ProductoDto>>("https://localhost:44300/api/Producto/lista");
+        movimientosRegistrados = await Http.GetFromJsonAsync<List<MovimientoInventarioRegistradoDto>>("https://localhost:44300/api/inventario/movimientos");
+    }
+
+    private void ActualizarTipoMovimiento(ChangeEventArgs e)
+    {
+        var valor = e.Value?.ToString();
+        nuevoMovimiento.EsEntrada = valor == "1";
+    }
+
+    private void AgregarMovimiento()
+    {
+        if (nuevoMovimiento.ProductoId > 0 && nuevoMovimiento.Cantidad > 0)
+        {
+            movimientos.Add(new MovimientoInventarioDto
+                {
+                    ProductoId = nuevoMovimiento.ProductoId,
+                    Cantidad = nuevoMovimiento.Cantidad,
+                    EsEntrada = nuevoMovimiento.EsEntrada,
+                    Observacion = nuevoMovimiento.Observacion
+                });
+
+            // Reiniciar campos
+            nuevoMovimiento = new MovimientoInventarioDto { EsEntrada = true };
+        }
+    }
+
+    private void RemoverMovimiento(MovimientoInventarioDto movimiento)
+    {
+        movimientos.Remove(movimiento);
+    }
+
+    private async Task EnviarMovimientos()
+    {
+        var payload = new MovimientoInventarioRequest
+            {
+                UsuarioId = usuarioId,
+                Movimientos = movimientos
+            };
+
+        var response = await Http.PostAsJsonAsync("/api/inventario/movimientos-multiples", payload);
+
+        if (response.IsSuccessStatusCode)
+        {
+            movimientos.Clear();
+            await JS.InvokeVoidAsync("alert", "¡Movimientos registrados!");
+            await OnInitializedAsync();
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Error al registrar movimientos.");
+        }
+    }
+    private List<MovimientoInventarioRegistradoDto> movimientosRegistrados = new();
+
+    public class ProductoDto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; }
+    }
+
+    public class MovimientoInventarioDto
+    {
+        public int ProductoId { get; set; }
+        public int Cantidad { get; set; }
+        public bool EsEntrada { get; set; }
+        public string Observacion { get; set; } = "";
+    }
+
+    public class MovimientoInventarioRequest
+    {
+        public int UsuarioId { get; set; }
+        public List<MovimientoInventarioDto> Movimientos { get; set; } = new();
+    }
+
+    public class MovimientoInventarioRegistradoDto
+    {
+        public int ProductoId { get; set; }
+        public string productoNombre { get; set; } = "";
+        public int Cantidad { get; set; }
+        public bool EsEntrada { get; set; }
+        public string Observacion { get; set; } = "";
+        public DateTime fechaRegistro { get; set; }
+    }
+
+
+}
+
+<h5>Historial de Movimientos Registrados:</h5>
+
+@if (movimientosRegistrados.Count == 0)
+{
+    <p>No hay movimientos registrados aún.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Tipo</th>
+                <th>Observación</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var m in movimientosRegistrados.OrderByDescending(m => m.fechaRegistro))
+            {
+                <tr>
+                    <td>@m.fechaRegistro.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td>@m.productoNombre</td>
+                    <td>@m.Cantidad</td>
+                    <td>@(m.EsEntrada ? "Entrada" : "Salida")</td>
+                    <td>@m.Observacion</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

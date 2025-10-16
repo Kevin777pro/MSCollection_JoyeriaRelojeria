@@ -1,0 +1,65 @@
+﻿
+
+@page "/EditarPerfil"
+<PageTitle>Acerca de MS Joyería y Relojería</PageTitle>
+@* Importamos Bootstrap *@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+<div class="container mt-4 d-flex justify-content-center">
+    <div class="card shadow-sm border-0 rounded-4" style="width: 100%; max-width: 400px;">
+        <div class="card-body text-center p-4" style="background: linear-gradient(180deg, #f3ebe7, #f5d2b4); border-top-left-radius: 15px; border-top-right-radius: 15px;">
+            <img src="https://via.placeholder.com/80" class="rounded-circle mb-2" alt="Perfil">
+            <h5 class="fw-bold">Alba Castro</h5>
+            <p class="text-muted mb-1">hola@unsitiogenial.es</p>
+        </div>
+        <div class="card-body bg-white p-4 rounded-bottom">
+            <h5 class="text-center fw-bold text-success mb-3">Editar</h5>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Cédula</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                    <input type="text" class="form-control" value="441-73847203-1011L" readonly>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Nombre</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" class="form-control" value="Alba Patricia">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Apellido</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" class="form-control" value="Castro López">
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">Correo</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                    <input type="email" class="form-control" value="hola@unsitiogenial.es" readonly>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button class="btn w-100" style="background-color: #f5d2b4; color: #000;">Editar perfil</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Barra de navegación inferior -->
+<div class="d-flex justify-content-around fixed-bottom bg-white py-2 shadow">
+    <a href="#" class="text-secondary"><i class="bi bi-house fs-4"></i></a>
+    <a href="#" class="text-primary"><i class="bi bi-person fs-4"></i></a>
+    <a href="#" class="text-secondary"><i class="bi bi-cart fs-4"></i></a>
+    <a href="#" class="text-secondary"><i class="bi bi-gear fs-4"></i></a>
+</div>
+
+

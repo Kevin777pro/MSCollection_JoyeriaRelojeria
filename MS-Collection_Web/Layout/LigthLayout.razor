@@ -1,0 +1,62 @@
+﻿@inherits LayoutComponentBase
+
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reportes MS-Collection</title>
+
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="MS-Collection_Web.styles.css" rel="stylesheet" />
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+
+    <style>
+        body {
+            margin: 0;
+            background: linear-gradient(to bottom, #f5e5df, #e4c3b5);
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        header {
+            background: linear-gradient(to right, #c6947b, #e0c0b0);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .titulo-reportes {
+            font-size: 2rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        main {
+            padding: 30px 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .contenedor-dashboard {
+            width: 100%;
+            max-width: 950px;
+            background-color: #fff8f5;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="titulo-reportes">📊 Reportes MS-Collection</div>
+    </header>
+
+    <main>
+        <div class="contenedor-dashboard">
+            @Body
+        </div>
+    </main>
+</body>
+</html>

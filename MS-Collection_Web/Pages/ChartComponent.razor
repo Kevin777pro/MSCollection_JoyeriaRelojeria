@@ -1,0 +1,22 @@
+﻿@inject IJSRuntime JS
+
+<canvas id="@Id" width="100%" height="250"></canvas>
+
+@code {
+    [Parameter] public string Id { get; set; } = $"chart_{Guid.NewGuid()}";
+    [Parameter] public string Type { get; set; } = "bar";
+    [Parameter] public string[] Labels { get; set; } = [];
+    [Parameter] public double[] Data { get; set; } = [];
+    [Parameter] public string Label { get; set; } = "";
+
+    private bool _rendered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_rendered && Labels.Length > 0 && Data.Length > 0)
+        {
+            _rendered = true;
+            await JS.InvokeVoidAsync("renderChart", Id, Type, Labels, Data, Label);
+        }
+    }
+}

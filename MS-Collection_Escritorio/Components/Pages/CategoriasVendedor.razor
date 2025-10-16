@@ -1,0 +1,370 @@
+﻿@page "/CategoriasVendedor"
+@layout Layout.VendedorLayout
+<div class="contenedor-principal">
+    <main class="contenido">
+        <div class="barra-superior">
+            <div class="titulo-seccion">Categorías</div>
+            <button class="btn-agregar" @onclick="AgregarCategoria">+ Agregar</button>
+        </div>
+
+        <div class="tabla-contenedor">
+            <table class="tabla-categorias">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Editar</th>
+                        <th>Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var categoria in listaCategorias)
+                    {
+                        <tr>
+                            <td>@categoria.Nombre</td>
+                            <td><button class="btn-icono" @onclick="() => EditarCategoria(categoria)">✏</button></td>
+                            <td><button class="btn-icono" @onclick="() => EliminarCategoria(categoria.Id)">🗑</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    @if (mostrarModalCategoria)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <button class="cerrar-modal" @onclick="()=>mostrarModalCategoria=false">×</button>
+                <h2>@(editando ? "Editar Categoría" : "Agregar Categoría")</h2>
+                <div class="formulario-producto">
+                    <div class="columna">
+                        <input type="text" placeholder="Nombre" @bind="nuevaCategoria.Nombre" />
+                    </div>
+                </div>
+                <button class="btn-registrar" @onclick="GuardarCategoria">
+                    @(editando ? "Guardar Cambios" : "Registrar")
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (mostrarModalConfirmacion)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <h2>¿Estás seguro?</h2>
+                <p>¿Deseas eliminar la categoría <strong>@categoriaAEliminar?.Nombre</strong>?</p>
+                <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="btn-registrar" style="background-color: #d9534f;" @onclick="ConfirmarEliminar">Sí, eliminar</button>
+                    <button class="btn-registrar" style="background-color: #6c757d;" @onclick="()=>mostrarModalConfirmacion=false">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+
+@code {
+    private List<Categoria> listaCategorias = new();
+    private Categoria nuevaCategoria = new();
+    private bool mostrarModalCategoria = false;
+    private bool editando = false;
+
+    private bool mostrarModalConfirmacion = false;
+    private Categoria? categoriaAEliminar;
+
+    [Inject]
+    public HttpClient Http { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ObtenerCategorias();
+    }
+
+    void AgregarCategoria()
+    {
+        nuevaCategoria = new();
+        editando = false;
+        mostrarModalCategoria = true;
+    }
+
+    void EditarCategoria(Categoria categoria)
+    {
+        nuevaCategoria = new Categoria
+            {
+                Id = categoria.Id,
+                Nombre = categoria.Nombre
+            };
+        editando = true;
+        mostrarModalCategoria = true;
+    }
+
+    async Task GuardarCategoria()
+    {
+        if (editando)
+        {
+            var response = await Http.PutAsJsonAsync($"https://localhost:44300/api/categoria/{nuevaCategoria.Id}", nuevaCategoria);
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModalCategoria = false;
+                await ObtenerCategorias();
+            }
+        }
+        else
+        {
+            var response = await Http.PostAsJsonAsync("https://localhost:44300/api/categoria", nuevaCategoria);
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModalCategoria = false;
+                await ObtenerCategorias();
+            }
+        }
+    }
+
+    void EliminarCategoria(int id)
+    {
+        categoriaAEliminar = listaCategorias.FirstOrDefault(c => c.Id == id);
+        mostrarModalConfirmacion = true;
+    }
+
+    async Task ConfirmarEliminar()
+    {
+        if (categoriaAEliminar != null)
+        {
+            var response = await Http.DeleteAsync($"https://localhost:44300/api/categoria/{categoriaAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await ObtenerCategorias();
+                mostrarModalConfirmacion = false;
+                categoriaAEliminar = null;
+            }
+        }
+    }
+
+    async Task ObtenerCategorias()
+    {
+        try
+        {
+            listaCategorias = await Http.GetFromJsonAsync<List<Categoria>>("https://localhost:44300/api/categoria/lista");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener categorías: {ex.Message}");
+        }
+    }
+
+    public class Categoria
+    {
+        public int Id { get; set; }
+        public string? Nombre { get; set; }
+    }
+}
+
+
+
+<style>
+
+    .btn-registrar {
+        display: block;
+        margin: 0 auto;
+        padding: 0.7rem 2rem;
+        border: none;
+        border-radius: 2rem;
+        background-color: #e7b298;
+        color: white;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+        .btn-registrar:hover {
+            filter: brightness(0.9);
+        }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+    }
+
+    .modal-contenido {
+        background: #fef6f1;
+        padding: 2rem;
+        border-radius: 1.5rem;
+        width: 60%;
+        max-width: 700px;
+        position: relative;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+        .modal-contenido h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #3f2f2f;
+        }
+
+    .formulario-producto {
+        display: flex;
+        gap: 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .columna {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+        .columna input,
+        .columna select {
+            padding: 0.75rem;
+            border: 2px solid #365349;
+            border-radius: 2rem;
+            background: #fff;
+            font-size: 1rem;
+            font-family: inherit;
+            outline: none;
+        }
+
+    .cerrar-modal {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+
+
+    .contenedor-principal {
+        display: flex;
+        height: 100vh;
+        font-family: sans-serif;
+    }
+
+    .sidebar {
+        background: #d2a88f;
+        width: 200px;
+        padding: 1rem;
+        color: white;
+    }
+
+        .sidebar .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .sidebar ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .sidebar li {
+            margin: 0.5rem 0;
+            padding: 0.5rem;
+            background: #d9a07c;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+            .sidebar li.activo {
+                background: white;
+                color: #a46345;
+                font-weight: bold;
+            }
+
+    .contenido {
+        flex: 1;
+        background: linear-gradient(to bottom, #f5e8df, #c9b7b1);
+        padding: 2rem 3rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+    }
+
+    .tabla-contenedor {
+        flex-grow: 1;
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    .barra-superior {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .titulo-seccion {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #3f2f2f;
+    }
+
+    .btn-agregar {
+        background: #d9a07c;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .tabla-contenedor {
+        flex-grow: 1;
+        overflow-x: auto;
+    }
+
+    .tabla-categorias {
+        width: 100%;
+        table-layout: fixed;
+    }
+
+        .tabla-categorias th, .tabla-categorias td {
+            width: 33%;
+        }
+
+        .tabla-categorias th, .tabla-categorias td {
+            border: 1px solid #f5d3b5;
+            padding: 0.5rem;
+            text-align: center;
+            background: #fff1dc;
+        }
+
+        .tabla-categorias th {
+            background: #ffdbab;
+        }
+
+    .btn-icono {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+
+        .btn-icono:hover {
+            color: #a46345;
+            transform: scale(1.1);
+            transition: 0.2s ease-in-out;
+
+        }
+
+</style>

@@ -1,0 +1,128 @@
+﻿@page "/Datospago"
+@using MS_Collection_Web.Models
+@inject CarritoService carritoService
+@inject IJSRuntime JSRuntime
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Datos de pago</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg rounded">
+                <div class="card-body">
+                    <h2 class="card-title text-center mb-4">Datos de Pago</h2>
+                    <h4 class="text-center text-primary mb-4">Total a pagar: <strong>${@carritoService.CalcularTotal():0.00}</strong></h4>
+
+                    <div class="mb-3">
+                        <label class="form-label">Información de Tarjeta</label>
+                        <div id="card-element" class="form-control" style="padding: 10px;"></div>
+                    </div>
+
+                    <button class="btn btn-success w-100" @onclick="Pagar">Pagar</button>
+
+                    @if (!string.IsNullOrEmpty(mensaje))
+                    {
+                        <div class="alert alert-info text-center mt-3" role="alert">
+                            @mensaje
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string mensaje = "";
+    private bool isInitialized = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isInitialized)
+        {
+            await JSRuntime.InvokeVoidAsync("stripeInterop.initialize", "pk_test_51RIMQQQQ0klkuHel62soZnn0bbJ0crMgn4RI3EtGbSkm5o2ZUVrmPhuFDwnfHPKOuZucJIwsA8NdN69HjqYK0Zlf00Epzc3OmB");
+            isInitialized = true;
+        }
+    }
+
+    private async Task Pagar()
+    {
+        var amountEnCentavos = (int)(carritoService.CalcularTotal() * 100);
+
+        var response = await Http.PostAsJsonAsync("api/payments/create-payment-intent", new PaymentRequest
+            {
+                Amount = amountEnCentavos
+            });
+
+        var result = await response.Content.ReadFromJsonAsync<PaymentIntentResponse>();
+
+        var resultado = await JSRuntime.InvokeAsync<PaymentResult>("stripeInterop.confirmCardPayment", result.ClientSecret);
+
+        if (resultado.Success)
+        {
+            mensaje = $"✅ Pago exitoso. ID: {resultado.PaymentIntentId}";
+            await Hacerpedido((decimal)amountEnCentavos / 100);
+        }
+        else
+        {
+            mensaje = $"❌ Error: {resultado.Message}";
+        }
+    }
+
+    private async Task Hacerpedido(decimal total)
+    {
+        try
+        {
+            var clienteIdString = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "Id");
+            int clienteId = int.Parse(clienteIdString);
+            var estado = "Pendiente";
+
+            var detalles = carritoService.Carrito.Select(item => new DetallePedido
+                {
+                    ProductoId = item.ProductoId,
+                    Cantidad = item.Cantidad,
+                    PrecioUnitario = item.PrecioUnitario
+                }).ToList();
+
+            var nuevoPedido = new Pedido
+                {
+                    ClienteId = clienteId,
+                    DetallePedidos = detalles,
+                    Estado = estado,
+                    Total = total
+                };
+
+            var response = await Http.PostAsJsonAsync("api/Pedido/Crear", nuevoPedido);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensaje = "✅ Pedido realizado con éxito. Serás redirigido al inicio en breve...";
+                carritoService.VaciarCarrito();
+
+                // Mostrar el mensaje unos segundos antes de redirigir
+                StateHasChanged(); // Forzar render del mensaje antes del delay
+                await Task.Delay(5000); // Esperar 3 segundos
+
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                mensaje = $"❌ Error al crear el pedido: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"❌ Excepción: {ex.Message}";
+        }
+    }
+
+    public class PaymentResult
+    {
+        public bool Success { get; set; }
+        public string? PaymentIntentId { get; set; }
+        public string? Message { get; set; }
+    }
+}

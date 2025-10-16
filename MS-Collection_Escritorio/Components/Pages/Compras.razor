@@ -1,0 +1,720 @@
+﻿@page "/Compras"
+@inject HttpClient Http
+
+<div class="contenedor-principal">
+    <main class="contenido">
+        <div class="barra-superior">
+            <div class="titulo-seccion">Gestión de compras</div>
+            <button class="btn-agregar" @onclick="Agregarcompra">+ Nuevo compra</button>
+        </div>
+        <div class="input-group mb-3">
+            <input @bind="terminoBusqueda" class="form-control" placeholder="Buscar compra..." />
+            <button class="btn-agregar" @onclick="BuscarCompras">Buscar</button>
+        </div>
+        @if (comprasFiltradas != null)
+        {
+            <table class="tabla-productos">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Proveedor</th>
+                        <th>Telefono</th>
+                        <th>Fecha</th>
+                        <th>Total</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var compra in comprasFiltradas)
+                    {
+                        <tr>
+                            <td>@compra.Id</td>
+                            <td>@compra.Proveedor?.Nombre</td>
+                            <td>@compra.Proveedor?.Telefono</td>
+                            <td>@compra.Fechacompra?.ToString("dd/MM/yyyy")</td>
+                            <td>@compra.Total?.ToString("C")</td>
+                            <td>
+                                <button class="btn-agregar" @onclick="() => VerDetalleCompra(compra.Id)">Ver Detalle</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </main>
+
+    @if (mostrarModal2)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <h3>Detalles del Compras #@compraSeleccionadoId</h3>
+                <table class="tabla-productos">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unitario</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var detalle in detallesCompra)
+                        {
+                            <tr>
+                                <td>@detalle.NombreProducto</td>
+                                <td>@detalle.Cantidad</td>
+                                <td>@detalle.PrecioUnitario.ToString("C")</td>
+                                <td>@detalle.Subtotal.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <button class="btn-cerrar" @onclick="CerrarModal">Cerrar</button>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(mensajeError))
+    {
+        <div class="alert alert-danger">
+            @mensajeError
+        </div>
+    }
+    <!-- Modal de Registro de compra -->
+    @if (mostrarModal)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido compra-modal">
+                <button class="cerrar-modal" @onclick="() => mostrarModal = false">×</button>
+                <h2>Registrar compra</h2>
+                @* Formulario *@
+                <div class="formulario-producto">
+                    <div class="columna">
+                        <label>Proveedor:</label>
+                        <select @bind="nuevocompra.ProveedorId">
+                            <option value="">Seleccione un proveedor</option>
+                            @foreach (var proveedor in proveedors)
+                            {
+                                <option value="@proveedor.Id">@proveedor.Nombre</option>
+                            }
+                        </select>
+                        @*  Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorProveedor))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorProveedor</div>
+                        }
+                    </div>
+                    <div class="columna">
+                        <label>Producto:</label>
+                        <select @onchange="ProductoSeleccionado">
+                            <option value="">Seleccione un producto</option>
+                            @foreach (var producto in productos)
+                            {
+                                <option value="@producto.Id">@producto.Nombre</option>
+                            }
+                        </select>
+                        @*  Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorProducto))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorProducto</div>
+                        }
+                    </div>
+
+                    <div class="columna">
+                        <label>Cantidad:</label>
+                        <input type="number" @bind="detallecompraTemp.Cantidad" @oninput="CalcularTotal" /> @* Calculo de total *@
+                        @if (!string.IsNullOrWhiteSpace(errorCantidad))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorCantidad</div>
+                        }
+                    </div>
+
+                    <div class="columna">
+                        <label>Precio de compra:</label>
+                        <input type="number" step="0.01" @bind="detallecompraTemp.PrecioUnitario" />
+                        @if (!string.IsNullOrWhiteSpace(errorPrecio))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorPrecio</div>
+                        }
+                    </div>
+
+
+                    <button class="btn-cambiarestado" @onclick="AgregarDetalle">+ Agregar Detalle</button>
+                </div>
+
+                @if (detallesTemp.Any())
+                {
+                    <div class="detalles-agregados">
+                        <h4>Detalles del compra</h4>
+                        <table class="tabla-productos">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio Unitario</th>
+                                    <th>Total</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var detalle in detallesTemp)
+                                {
+                                    var nombreProducto = productos.FirstOrDefault(p => p.Id == detalle.ProductoId)?.Nombre;
+                                    <tr>
+                                        <td>@nombreProducto</td>
+                                        <td>@detalle.Cantidad</td>
+                                        <td>@detalle.PrecioUnitario</td>
+                                        <td>@(detalle.Cantidad * detalle.PrecioUnitario)</td>
+                                        <td>
+                                            <button class="btn-eliminar-detalle" @onclick="() => EliminarDetalle(detalle)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                        <!-- Total General -->
+                        <div class="total-general">
+                            <strong>Total del compra: </strong>
+                            @detallesTemp.Sum(d => d.Cantidad * d.PrecioUnitario).ToString("C")
+                        </div>
+                    </div>
+                }
+
+                <button class="btn-registrar" @onclick="Guardarcompra">Registrar</button>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private List<DetalleCompraDTO> detallesCompra = new();
+    private bool mostrarModal2 = false;
+    private int compraSeleccionadoId;
+
+    private async Task VerDetalleCompra(int compraId)
+    {
+        compraSeleccionadoId = compraId;
+        detallesCompra = await Http.GetFromJsonAsync<List<DetalleCompraDTO>>($"https://localhost:44300/api/compra/detalle/{compraId}");
+        mostrarModal2 = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal2 = false;
+        detallesCompra.Clear();
+    }
+
+    public class DetalleCompraDTO
+    {
+        public int ProductoId { get; set; }
+        public string? NombreProducto { get; set; }
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; set; }
+        public decimal Subtotal => Cantidad * PrecioUnitario;
+    }
+}
+
+@code {
+    private string terminoBusqueda = string.Empty;
+    private List<compra> comprasFiltradas;
+
+    // private async Task BuscarCompras()
+    // {
+    //     if (!string.IsNullOrWhiteSpace(terminoBusqueda))
+    //     {
+    //         try
+    //         {
+    //             comprasFiltradas = await Http.GetFromJsonAsync<List<compra>>(
+    //                 $"https://localhost:44300/api/compras/buscar?termino={terminoBusqueda}");
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             Console.WriteLine($"Error al buscar compras: {ex.Message}");
+    //             comprasFiltradas = new List<compra>();
+    //         }
+    //     }
+    // }
+
+    private async Task BuscarCompras()
+    {
+        if (!string.IsNullOrWhiteSpace(terminoBusqueda))
+        {
+            comprasFiltradas = compras
+                .Where(c =>
+                    (c.Proveedor?.Nombre ?? string.Empty).Contains(terminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                    c.Id.ToString().Contains(terminoBusqueda)
+                )
+                .ToList();
+        }
+        else
+        {
+            comprasFiltradas = new List<compra>(compras);
+        }
+    }
+}
+
+@code {
+
+
+
+    // Validaciones de validaciones
+    private string errorProveedor = string.Empty;
+    private string errorProducto = string.Empty;
+    private string errorCantidad = string.Empty;
+    private string errorPrecio = string.Empty;
+
+
+    // Variable de procesos
+    private List<compra> compras = new();
+    private compra nuevocompra = new();
+    private List<Detallecompra> detallesTemp = new();
+    private Detallecompra detallecompraTemp = new();
+
+    private bool mostrarModal = false;
+
+    private List<Proveedores> proveedors = new();
+    private List<Producto> productos = new();
+    private decimal totalCalculado = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Obtener datos
+        compras = await Http.GetFromJsonAsync<List<compra>>("https://localhost:44300/api/compra/lista");
+        proveedors = await Http.GetFromJsonAsync<List<Proveedores>>("https://localhost:44300/api/proveedor/lista");
+        productos = await Http.GetFromJsonAsync<List<Producto>>("https://localhost:44300/api/producto/lista");
+
+        // Inicializar la lista filtrada
+        comprasFiltradas = compras;
+    }
+
+    async Task Obtenercompras()
+    {
+        compras = await Http.GetFromJsonAsync<List<compra>>("https://localhost:44300/api/compra/lista");
+    }
+
+    void AgregarDetalle()
+    {
+        // Validaciones
+        // Limpiar errores anteriores
+        errorProveedor = string.Empty;
+        errorProducto = string.Empty;
+        errorCantidad = string.Empty;
+        errorPrecio = string.Empty;
+
+        bool hayError = false;
+
+        if (nuevocompra.ProveedorId == null || nuevocompra.ProveedorId == 0)
+        {
+            errorProveedor = "Debe seleccionar un proveedor.";
+            hayError = true;
+        }
+
+        if (detallecompraTemp.ProductoId == null || detallecompraTemp.ProductoId == 0)
+        {
+            errorProducto = "Debe seleccionar un producto.";
+            hayError = true;
+        }
+        if (detallecompraTemp.Cantidad == null || detallecompraTemp.Cantidad <= 0)
+        {
+            errorCantidad = "La cantidad debe ser mayor a 0.";
+            hayError = true;
+        }
+
+        if (detallecompraTemp.PrecioUnitario == null || detallecompraTemp.PrecioUnitario <= 0)
+        {
+            errorPrecio = "El precio unitario debe ser mayor a 0.";
+            hayError = true;
+        }
+
+        if (hayError)
+            return;
+
+        // Proceso de Agregar
+        if (detallecompraTemp.ProductoId > 0 && detallecompraTemp.Cantidad > 0)
+        {
+            // Clonar el detalle temporal para no compartir referencia
+            detallesTemp.Add(new Detallecompra
+                {
+                    ProductoId = detallecompraTemp.ProductoId,
+                    Cantidad = detallecompraTemp.Cantidad,
+                    PrecioUnitario = detallecompraTemp.PrecioUnitario
+                });
+
+            detallecompraTemp = new Detallecompra();
+            CalcularTotal(); // Actualiza el total
+        }
+    }
+
+    void EliminarDetalle(Detallecompra detalle)
+    {
+        detallesTemp.Remove(detalle);
+        CalcularTotal();
+    }
+
+
+    private async Task ProductoSeleccionado(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int productoId))
+        {
+            detallecompraTemp.ProductoId = productoId;
+            var producto = productos.FirstOrDefault(p => p.Id == productoId);
+            if (producto != null)
+            {
+                CalcularTotal();
+            }
+        }
+    }
+
+    void CalcularTotal()
+    {
+        totalCalculado = detallesTemp.Sum(d => d.Cantidad * d.PrecioUnitario);
+        nuevocompra.Total = totalCalculado;
+    }
+    protected string mensajeError = string.Empty;
+
+    async Task Guardarcompra()
+    {
+        try
+        {
+            var compraAEnviar = new compra
+                {
+                    ProveedorId = nuevocompra.ProveedorId,
+                    Total = totalCalculado,
+                    Detallecompras = detallesTemp
+                };
+
+            var response = await Http.PostAsJsonAsync("https://localhost:44300/api/compra/Crear", compraAEnviar);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModal = false;
+                await Obtenercompras();
+
+                await OnInitializedAsync();
+
+                // Limpiar detalles y reiniciar el formulario
+                detallesTemp.Clear();
+                totalCalculado = 0;
+                nuevocompra = new compra();
+                detallecompraTemp = new Detallecompra();
+
+                StateHasChanged();
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                mensajeError = $"Error al crear la compra. Código: {(int)response.StatusCode} - {response.StatusCode}\nDetalles: {errorContent}";
+
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+            System.Diagnostics.Debugger.Break(); // Detiene el depurador si estás en modo debug
+            mensajeError = $"Error: {ex.Message}";
+        }
+    }
+
+    void Agregarcompra()
+    {
+        nuevocompra = new compra();
+        detallecompraTemp = new Detallecompra();
+        mostrarModal = true;
+    }
+
+
+
+    public class compra
+    {
+        public int Id { get; set; }
+        public int ProveedorId { get; set; }
+        public DateTime? Fechacompra { get; set; }
+        public decimal? Total { get; set; }
+        public Proveedores? Proveedor { get; set; }
+
+        // Esta propiedad debe existir para poder agregar los detalles
+        public List<Detallecompra> Detallecompras { get; set; } = new();
+    }
+
+    public class Detallecompra
+    {
+        public int Id { get; set; }
+        public int ProductoId { get; set; }
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; set; }
+        public int CompraId { get; set; }  // Relación con el compra
+    }
+
+
+    public class Proveedores
+    {
+        public int Id { get; set; }
+        public string? Nombre { get; set; }
+        public string? Telefono { get; set; }
+    }
+
+
+    public class Producto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public decimal? PrecioVenta { get; set; }
+    }
+}
+
+
+
+<style>
+    /* Estilo general */
+
+    .contenido {
+        max-width: 1200px;
+        margin: auto;
+        background-color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Barra superior */
+    .barra-superior {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .titulo-seccion {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #1f2937;
+    }
+
+    /* Botón agregar */
+    .btn-agregar {
+        background-color: #bb8e6b;
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+        .btn-agregar:hover {
+            background-color: #ede0d4;
+            color: #bb8e6b;
+        }
+
+    .btn-cambiarestado {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+        .btn-cambiarestado:hover {
+            background-color: #bb8e6b;
+            color: #ede0d4;
+        }
+
+
+
+    /* Tabla */
+    .tabla-contenedor {
+        overflow-x: auto;
+    }
+
+    .tabla-productos {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .tabla-productos th,
+        .tabla-productos td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabla-productos th {
+            background-color: #EAE6E3;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .tabla-productos tr:hover {
+            background-color: #F9F4EF;
+        }
+
+    /* Botones de iconos: editar y eliminar */
+    .btn-icono {
+        border: none;
+        padding: 0.45rem 0.6rem;
+        border-radius: 0.5rem;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Editar */
+    .btn-editar {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+    }
+
+        .btn-editar:hover {
+            background-color: #d9a98b;
+            color: #fff;
+            transform: scale(1.08);
+        }
+
+    /* Eliminar */
+    .btn-eliminar {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+    }
+
+        .btn-eliminar:hover {
+            background-color: #bb8e6b;
+            color: #fff;
+            transform: scale(1.08);
+        }
+
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+    }
+
+    .modal-contenido {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 700px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        position: relative;
+    }
+
+    /* Botón cerrar modal */
+    .cerrar-modal {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+    /* Formularios */
+    .formulario-producto {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .columna label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .columna input,
+    .columna select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+    }
+
+    /* Mensaje error */
+    .mensaje-error {
+        margin-top: 0.25rem;
+        font-size: 0.85rem;
+        color: #dc2626;
+    }
+    /* Titulo de detalle */
+    h4 {
+        padding-top: 15px;
+    }
+
+    /* Botones */
+    .btn-registrar,
+    .btn-eliminar-detalle {
+        color: white;
+        border: none;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: background-color 0.2s ease;
+    }
+
+    .btn-eliminar-detalle {
+        background-color: #ef4444;
+    }
+
+    .btn-registrar {
+        background-color: #10b981;
+    }
+
+    .btn-eliminar-detalle:hover {
+        background-color: #dc2626;
+    }
+
+    .btn-registrar:hover {
+        background-color: #059669;
+    }
+
+    /* Total general */
+    .total-general {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #3f2f2f;
+        background-color: #F0EAE4;
+        padding: 0.7rem;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    .btn-detalle,
+    .btn-cerrar {
+        padding: 8px 16px;
+        margin-top: 10px;
+        background-color: #007bff;
+        border: none;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-cerrar {
+        background-color: #dc3545;
+
+    }
+</style>

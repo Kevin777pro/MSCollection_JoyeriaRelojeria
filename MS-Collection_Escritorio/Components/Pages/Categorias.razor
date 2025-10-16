@@ -1,0 +1,392 @@
+﻿@page "/Categorias"
+@using System.Text.RegularExpressions
+
+<div class="contenedor-principal">
+    <main class="contenido">
+        <div class="barra-superior">
+            <div class="titulo-seccion">Categorías</div>
+            <button class="btn-agregar" @onclick="AgregarCategoria">+ Agregar</button>
+        </div>
+
+        <div class="tabla-contenedor">
+            <table class="tabla-categorias">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Editar</th>
+                        <th>Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var categoria in listaCategorias)
+                    {
+                        <tr>
+                            <td>@categoria.Nombre</td>
+                            <td><button class="btn-icono" @onclick="() => EditarCategoria(categoria)">✏</button></td>
+                            <td><button class="btn-icono" @onclick="() => EliminarCategoria(categoria.Id)">🗑</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    @if (mostrarModalCategoria)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <button class="cerrar-modal" @onclick="()=>mostrarModalCategoria=false">×</button>
+                <h2>@(editando ? "Editar Categoría" : "Agregar Categoría")</h2>
+                <div class="formulario-producto">
+                    <div class="columna">
+                        <input type="text" placeholder="Nombre" @bind="nuevaCategoria.Nombre" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorNombreCategoria))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorNombreCategoria</div>
+                        }
+                    </div>
+                </div>
+                <button class="btn-registrar" @onclick="GuardarCategoria">
+                    @(editando ? "Guardar Cambios" : "Registrar")
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (mostrarModalConfirmacion)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <h2>¿Estás seguro?</h2>
+                <p>¿Deseas eliminar la categoría <strong>@categoriaAEliminar?.Nombre</strong>?</p>
+                <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="btn-registrar" style="background-color: #d9534f;" @onclick="ConfirmarEliminar">Sí, eliminar</button>
+                    <button class="btn-registrar" style="background-color: #6c757d;" @onclick="()=>mostrarModalConfirmacion=false">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+
+@code {
+    // Variables de validaciones
+    string errorNombreCategoria = string.Empty;
+
+    // Variables de procesos
+    private List<Categoria> listaCategorias = new();
+    private Categoria nuevaCategoria = new();
+    private bool mostrarModalCategoria = false;
+    private bool editando = false;
+
+    private bool mostrarModalConfirmacion = false;
+    private Categoria? categoriaAEliminar;
+
+    [Inject]
+    public HttpClient Http { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ObtenerCategorias();
+    }
+
+    void AgregarCategoria()
+    {
+        nuevaCategoria = new();
+        editando = false;
+        mostrarModalCategoria = true;
+    }
+
+    void EditarCategoria(Categoria categoria)
+    {
+        nuevaCategoria = new Categoria
+            {
+                Id = categoria.Id,
+                Nombre = categoria.Nombre
+            };
+        editando = true;
+        mostrarModalCategoria = true;
+    }
+
+    async Task GuardarCategoria()
+    {
+        // Validaciones
+        errorNombreCategoria = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(nuevaCategoria.Nombre))
+        {
+            errorNombreCategoria = "El nombre no puede estar vacío.";
+            return;
+        }
+
+        if (!Regex.IsMatch(nuevaCategoria.Nombre, @"^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$"))
+        {
+            errorNombreCategoria = "El nombre no debe contener símbolos ni números.";
+            return;
+        }
+
+        // Proceso de guardado
+        if (editando)
+        {
+            var response = await Http.PutAsJsonAsync($"https://localhost:44300/api/categoria/{nuevaCategoria.Id}", nuevaCategoria);
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModalCategoria = false;
+                await ObtenerCategorias();
+            }
+        }
+        else
+        {
+            var response = await Http.PostAsJsonAsync("https://localhost:44300/api/categoria", nuevaCategoria);
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModalCategoria = false;
+                await ObtenerCategorias();
+            }
+        }
+    }
+
+    void EliminarCategoria(int id)
+    {
+        categoriaAEliminar = listaCategorias.FirstOrDefault(c => c.Id == id);
+        mostrarModalConfirmacion = true;
+    }
+
+    async Task ConfirmarEliminar()
+    {
+        if (categoriaAEliminar != null)
+        {
+            var response = await Http.DeleteAsync($"https://localhost:44300/api/categoria/{categoriaAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await ObtenerCategorias();
+                mostrarModalConfirmacion = false;
+                categoriaAEliminar = null;
+            }
+        }
+    }
+
+    async Task ObtenerCategorias()
+    {
+        try
+        {
+            listaCategorias = await Http.GetFromJsonAsync<List<Categoria>>("https://localhost:44300/api/categoria/lista");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al obtener categorías: {ex.Message}");
+        }
+    }
+
+    public class Categoria
+    {
+        public int Id { get; set; }
+        public string? Nombre { get; set; }
+    }
+}
+
+
+<style>
+    /* Estilo general */
+
+    .contenido {
+        max-width: 1200px;
+        margin: auto;
+        background-color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Barra superior */
+    .barra-superior {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .titulo-seccion {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #1f2937;
+    }
+
+    /* Botón agregar */
+    .btn-agregar {
+        background-color: #bb8e6b;
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+        .btn-agregar:hover {
+            background-color: #ede0d4;
+            color: #bb8e6b;
+        }
+
+    /* Tabla */
+    .tabla-contenedor {
+        overflow: auto;
+    }
+
+    .tabla-categorias {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .tabla-categorias th,
+        .tabla-categorias td {
+            padding: 0.5rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabla-categorias th {
+            background-color: #EAE6E3;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .tabla-categorias tr:hover {
+            background-color: #F9F4EF;
+        }
+
+    /* Botones de iconos: editar y eliminar */
+    .btn-icono {
+        border: none;
+        padding: 0.45rem 0.6rem;
+        border-radius: 0.5rem;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Editar */
+    .btn-editar {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+    }
+
+        .btn-editar:hover {
+            background-color: #d9a98b;
+            color: #fff;
+            transform: scale(1.08);
+        }
+
+    /* Eliminar */
+    .btn-eliminar {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+    }
+
+        .btn-eliminar:hover {
+            background-color: #bb8e6b;
+            color: #fff;
+            transform: scale(1.08);
+        }
+
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+    }
+
+    .modal-contenido {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 700px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        position: relative;
+    }
+
+    /* Botón cerrar modal */
+    .cerrar-modal {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+    /* Formularios */
+    .formulario-categorias {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .columna label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .columna input,
+    .columna select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+    }
+
+    /* Mensaje error */
+    .mensaje-error {
+        margin-top: 0.25rem;
+        font-size: 0.85rem;
+        color: #dc2626;
+    }
+
+    /* Botones */
+    .btn-registrar,
+    .btn-eliminar-detalle {
+        color: white;
+        border: none;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: background-color 0.2s ease;
+    }
+
+    .btn-eliminar-detalle {
+        background-color: #ef4444;
+    }
+
+    .btn-registrar {
+        background-color: #10b981;
+    }
+
+    .btn-eliminar-detalle:hover {
+        background-color: #dc2626;
+    }
+
+    .btn-registrar:hover {
+        background-color: #059669;
+
+    }
+
+</style>

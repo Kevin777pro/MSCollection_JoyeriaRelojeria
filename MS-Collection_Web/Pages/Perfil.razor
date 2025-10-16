@@ -1,0 +1,346 @@
+﻿@page "/Perfil"
+@inject IJSRuntime JSRuntime
+@inject NavigationManager NavigationManager
+@inject SessionService SessionService
+@inject HttpClient Http
+@using System.ComponentModel.DataAnnotations;
+
+<PageTitle>Editar Perfil</PageTitle>
+
+<style>
+    .editar-perfil-container {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 3rem 1rem;
+        min-height: 100vh;
+        background: linear-gradient(to bottom, #c59180, #f4ebe7);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .perfil-panel {
+        background: white;
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        max-width: 750px;
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .perfil-sidebar {
+        width: 250px;
+        background-color: #f4ebe7;
+        padding: 2rem;
+        text-align: center;
+        border-right: 1px solid #ddd;
+    }
+
+        .perfil-sidebar i {
+            font-size: 70px;
+            color: #c59180;
+            margin-bottom: 1rem;
+        }
+
+        .perfil-sidebar h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #333;
+        }
+
+        .perfil-sidebar a {
+            display: block;
+            margin-top: 0.3rem;
+            font-size: 0.9rem;
+            color: #a26c5e;
+            text-decoration: none;
+        }
+
+    .perfil-menu {
+        margin-top: 2rem;
+        text-align: left;
+    }
+
+        .perfil-menu button {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            background: none;
+            border: none;
+            padding: 0.7rem 1rem;
+            font-size: 0.95rem;
+            color: #333;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.2s ease;
+        }
+
+            .perfil-menu button:hover {
+                background-color: #e8d7d0;
+            }
+
+    .icono-menu {
+        font-size: 18px;
+        margin-right: 0.4rem;
+        color: #c59180;
+    }
+
+    .perfil-content h4 i,
+    .perfil-menu i {
+        font-size: 18px !important;
+        margin-right: 0.4rem;
+        color: #c59180 !important;
+    }
+
+    .perfil-content {
+        flex-grow: 1;
+        padding: 2rem;
+    }
+
+        .perfil-content h4 {
+            font-size: 1.5rem;
+            color: #333;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+        }
+
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 0.3rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+
+    .btn-wrapper {
+        text-align: center;
+    }
+
+    .submit-btn {
+        margin-top: 1.5rem;
+        background-color: #c59180;
+        color: white;
+        font-weight: bold;
+        border: none;
+        padding: 0.8rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+        .submit-btn:hover {
+            background-color: #a26c5e;
+        }
+
+    .hover-animado {
+        opacity: 0;
+        animation: slideIn 0.6s ease forwards;
+    }
+
+    @@keyframes slideIn {
+        from {
+            transform: translateX(-20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .perfil-panel {
+            flex-direction: column;
+            max-width: 100%;
+        }
+
+        .perfil-sidebar {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .perfil-content {
+            padding: 1.5rem;
+        }
+    }
+
+    @@media (min-width: 1200px) {
+        .perfil-panel {
+            max-width: 650px;
+        }
+    }
+</style>
+
+<div class="editar-perfil-container">
+    @if (!usuarioLogeado)
+    {
+        <p>Redirigiendo a login...</p>
+    }
+    else if (usuario != null)
+    {
+        <div class="perfil-panel">
+            <!-- Sidebar -->
+            <div class="perfil-sidebar">
+                <i class="bi bi-person-circle"></i>
+                <h3>@usuario.NombreCompleto</h3>
+                <a href="/perfil">Perfil de usuario</a>
+
+                <div class="perfil-menu">
+                    <button class="hover-animado" style="animation-delay: 0.1s" @onclick="HabilitarEdicion"><i class="bi bi-person icono-menu"></i>Editar Cuenta</button>
+                    <a href="/CambiarContrasena"><button class="hover-animado" style="animation-delay: 0.3s"><i class="bi bi-key icono-menu"></i>Cambiar Contraseña</button></a>
+                    <button class="hover-animado" style="animation-delay: 0.5s" @onclick="EliminarCuenta"><i class="bi bi-trash icono-menu"></i> Borrar cuenta</button>
+                    <button class="hover-animado" style="animation-delay: 0.7s" @onclick="CerrarSesion"><i class="bi bi-box-arrow-right icono-menu"></i> Cerrar sesión</button>
+                </div>
+            </div>
+
+            <!-- Contenido editable -->
+            <div class="perfil-content">
+                <h4><i class="bi bi-person-gear icono-menu"></i> Cuenta</h4>
+
+                <EditForm Model="usuario" OnValidSubmit="ActualizarUsuario">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="form-group">
+                        <label>Nombre de usuario</label>
+                        <input type="text" value="@usuario.User" disabled />
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre completo</label>
+                        <InputText @bind-Value="usuario.NombreCompleto" class="form-control" disabled="@(!editable)" />
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <InputText @bind-Value="usuario.Email" class="form-control" disabled="@(!editable)" />
+                    </div>
+                    <div class="form-group">
+                        <label>Dirección</label>
+                        <InputText @bind-Value="usuario.Direccion" class="form-control" disabled="@(!editable)" />
+                    </div>
+                    <div class="form-group">
+                        <label>Cédula</label>
+                        <InputText @bind-Value="usuario.Cedula" class="form-control" disabled="@(!editable)" />
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <InputText @bind-Value="usuario.Telefono" class="form-control" disabled="@(!editable)" />
+                    </div>
+
+                    <div class="btn-wrapper">
+                        <button class="submit-btn" type="submit"><i class="bi bi-save me-1 icono-menu"></i> Actualizar la cuenta</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool usuarioLogeado = false;
+    private bool editable = false;
+    private Usuario usuario = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var token = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+        var nombre = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "userName");
+
+        if (!string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(nombre))
+        {
+            usuarioLogeado = true;
+            usuario = await Http.GetFromJsonAsync<Usuario>($"api/Usuario/BuscarPorUsuario/{nombre}") ?? new();
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/login");
+        }
+    }
+
+    private void HabilitarEdicion()
+    {
+        editable = true;
+    }
+
+    private async Task CerrarSesion()
+    {
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "userName");
+        SessionService.LogoutAsync();
+        NavigationManager.NavigateTo("/");
+    }
+
+    private async Task ActualizarUsuario()
+    {
+        if (usuario != null)
+        {
+            var response = await Http.PutAsJsonAsync($"api/Usuario/actualizar-perfil/{usuario.Id}", usuario);
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Perfil actualizado correctamente.");
+                editable = false;
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Hubo un error al actualizar el perfil.");
+            }
+        }
+    }
+
+    private async Task EliminarCuenta()
+    {
+        if (usuario != null && await JSRuntime.InvokeAsync<bool>("confirm", "¿Estás seguro de que deseas eliminar tu cuenta?"))
+        {
+            var response = await Http.DeleteAsync($"api/Usuario/eliminar/{usuario.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Cuenta eliminada correctamente.");
+                await CerrarSesion();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "Hubo un error al eliminar la cuenta.");
+            }
+        }
+    }
+
+    public class Usuario
+    {
+        public int Id { get; set; }
+
+        [Required(ErrorMessage = "El nombre completo es obligatorio")]
+        public string NombreCompleto { get; set; } = string.Empty;
+
+        // [Required(ErrorMessage = "El correo es obligatorio")]
+        // [EmailAddress(ErrorMessage = "Correo inválido")]
+        public string Email { get; set; } = string.Empty;
+
+        public string User { get; set; } = string.Empty;
+        public string Rol { get; set; } = string.Empty;
+        public bool? Estado { get; set; }
+
+        [Required(ErrorMessage = "La cédula es obligatoria")]
+        public string Cedula { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "La dirección es obligatoria")]
+        public string Direccion { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "El teléfono es obligatorio")]
+        public string Telefono { get; set; } = string.Empty;
+    }
+}

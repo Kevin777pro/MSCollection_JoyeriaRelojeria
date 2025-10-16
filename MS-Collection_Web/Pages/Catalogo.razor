@@ -1,0 +1,206 @@
+﻿@page "/Catalogo"
+@using MS_Collection_WbApi.Models
+@using Microsoft.AspNetCore.Components.Routing
+@inject HttpClient Http
+@using MS_Collection_Web.Models
+@inject CarritoService carritoService
+@inject IJSRuntime JS
+
+<PageTitle>Catálogo</PageTitle>
+
+<style>
+    .section-title {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: 500;
+        color: #3a2e2c;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+    }
+
+    .category-container {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        max-width: 900px;
+        margin: 0 auto 2rem;
+    }
+
+    .category-btn {
+        background: linear-gradient(135deg, #c19d87, #b17b66);
+        border: none;
+        border-radius: 50px;
+        padding: 0.6rem 1.5rem;
+        color: white;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: transform 0.2s ease-in-out;
+        width: 100%;
+    }
+
+        .category-btn:hover {
+            transform: scale(1.05);
+            background: linear-gradient(135deg, #b17b66, #a56e5a);
+        }
+
+    @@media (max-width: 700px) {
+        .category-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .product-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        justify-content: center;
+        padding: 1rem;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .product-card {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        text-align: center;
+        padding: 1rem;
+        transition: transform 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 220px;
+    }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+        }
+
+    .product-img {
+        width: 100%;
+        height: 160px;
+        object-fit: contain;
+        border-radius: 8px;
+        background-color: #f8f6f5;
+        padding: 0.5rem;
+    }
+
+    .product-name {
+        font-weight: 600;
+        font-size: 1rem;
+        color: #3a2e2c;
+    }
+
+    .product-price {
+        color: #c19d87;
+        font-weight: 500;
+        margin-top: 0.25rem;
+    }
+</style>
+
+<!-- CATEGORÍAS -->
+<section>
+    <h2 class="section-title">Categorías</h2>
+    <div class="category-container">
+        <button class="category-btn" @onclick="@(() => FiltrarPorCategoria(null))">Todos</button>
+
+        @foreach (var cat in categorias)
+        {
+            <button class="category-btn" @onclick="@(() => FiltrarPorCategoria(cat.Nombre))">@cat.Nombre</button>
+        }
+    </div>
+</section>
+
+<!-- TODOS LOS PRODUCTOS -->
+<section>
+    <h2 class="section-title">Todos los Productos</h2>
+    <div class="product-grid">
+        @if (productosFiltrados.Count == 0)
+        {
+            <p style="text-align: center;">No hay productos disponibles.</p>
+        }
+        else
+        {
+            @foreach (var producto in productosFiltrados)
+            {
+                var nombreCategoria = categorias.FirstOrDefault(c => c.Id == producto.CategoriaId)?.Nombre ?? "Sin categoría";
+                int stockRestante = producto.StockActual ?? 0;
+                int enCarrito = carritoService.ObtenerCantidadEnCarrito(producto.Id);
+                int stockDisponible = stockRestante - enCarrito;
+
+                <div class="product-card">
+                    <img class="product-img" src="@producto.ImagenURL" alt="@producto.Nombre" />
+                    <div class="product-name">@producto.Nombre</div>
+                    <div class="product-price"><strong>Categoría:</strong> @nombreCategoria</div>
+                    <div class="product-price"><strong>Código:</strong> @producto.Codigo</div>
+                    <p><strong>Cantidad disponible:</strong> @stockDisponible</p>
+                    <div style="margin-top: 0.6rem;">
+                        <span style="background: #f0eae7; color: #3a2e2c; font-weight: 600; padding: 0.3rem 0.8rem; border-radius: 20px;">
+                            $@producto.PrecioVenta
+                        </span>
+
+                        <div class="d-flex justify-content-between mt-2">
+                            <a href="/producto-detalle/@producto.Id" class="btn btn-outline-secondary btn-sm w-50 me-1 text-center">Ver detalles</a>
+                            <button class="btn btn-primary btn-sm w-50"
+                                    @onclick="@(async () => await AgregarAlCarrito(producto))"
+                                    disabled="@(stockDisponible <= 0)">
+                                🛒 Agregar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</section>
+
+@code {
+    List<Categorium> categorias = new();
+    List<Producto> productos = new();
+    List<Producto> productosFiltrados = new();
+    string? categoriaSeleccionada = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            categorias = await Http.GetFromJsonAsync<List<Categorium>>("https://localhost:44300/api/Categoria/lista");
+            productos = await Http.GetFromJsonAsync<List<Producto>>("https://localhost:44300/api/Producto/lista");
+            productosFiltrados = productos;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error al cargar productos: " + ex.Message);
+        }
+    }
+
+    async Task AgregarAlCarrito(Producto producto)
+    {
+        int stockDisponible = (producto.StockActual ?? 0) - carritoService.ObtenerCantidadEnCarrito(producto.Id);
+
+        if (stockDisponible <= 0)
+        {
+            await JS.InvokeVoidAsync("alert", $"❌ No hay stock disponible para '{producto.Nombre}'.");
+            return;
+        }
+
+        carritoService.AgregarItem(producto);
+        await JS.InvokeVoidAsync("alert", $"✅ '{producto.Nombre}' agregado al carrito.");
+    }
+
+    void FiltrarPorCategoria(string? nombreCategoria)
+    {
+        categoriaSeleccionada = nombreCategoria;
+
+        if (string.IsNullOrEmpty(nombreCategoria))
+        {
+            productosFiltrados = productos;
+        }
+        else
+        {
+            var categoria = categorias.FirstOrDefault(c => c.Nombre == nombreCategoria);
+            productosFiltrados = productos.Where(p => p.CategoriaId == categoria?.Id).ToList();
+        }
+    }
+}

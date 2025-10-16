@@ -1,0 +1,718 @@
+﻿@page "/Pedido"
+@inject HttpClient Http
+
+<div class="contenedor-principal">
+    <main class="contenido">
+        <div class="barra-superior">
+            <div class="titulo-seccion">Gestión de Pedidos</div>
+            <button class="btn-agregar" @onclick="AgregarPedido">+ Nuevo Pedido</button>
+        </div>
+        <div class="input-group mb-3">
+            <input @bind="terminoBusqueda" class="form-control" placeholder="Buscar pedido..." />
+            <button class="btn-agregar" @onclick="BuscarPedidos">Buscar</button>
+        </div>
+
+        <div class="tabla-contenedor mt-3">
+            <table class="tabla-productos">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Contacto</th>
+                        <th>Dirección de Envío</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pedido in pedidos)
+                    {
+                        <tr>
+                            <td>@pedido.Id</td>
+                            <td>@pedido.FechaPedido?.ToString("dd/MM/yyyy")</td>
+                            <td>@pedido.Usuario?.NombreCompleto</td>
+                            <td>@pedido.Usuario?.Telefono</td>
+                            <td>@pedido.Usuario?.Direccion</td>
+                            <td>@pedido.Total</td>
+                            <td>
+                                <select class="btn-cambiarestado" @onchange="(e) => CambiarEstado(pedido.Id, e)">
+                                    <option selected disabled>Seleccionar estado</option>
+                                    <option value="Pendiente" selected="@("Pendiente" == pedido.Estado)">Pendiente</option>
+                                    <option value="Enviado" selected="@("Enviado" == pedido.Estado)">Enviado</option>
+                                    <option value="Entregado" selected="@("Entregado" == pedido.Estado)">Entregado</option>
+                                </select>
+                            </td>
+                            <td>
+                                <button class="btn-agregar" @onclick="() => VerDetallePedido(pedido.Id)">Ver Detalle</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    @if (mostrarModal2)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <h3>Detalles del Pedido #@pedidoSeleccionadoId</h3>
+                <table class="tabla-productos">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unitario</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var detalle in detallesPedido)
+                        {
+                            <tr>
+                                <td>@detalle.NombreProducto</td>
+                                <td>@detalle.Cantidad</td>
+                                <td>@detalle.PrecioUnitario.ToString("C")</td>
+                                <td>@detalle.Subtotal.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <button class="btn-cerrar" @onclick="CerrarModal">Cerrar</button>
+            </div>
+        </div>
+    }
+    <!-- Modal de Registro de Pedido -->
+    @if (mostrarModal)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido pedido-modal">
+                <button class="cerrar-modal" @onclick="() => mostrarModal = false">×</button>
+                <h2>Registrar Pedido</h2>
+                @*  Formulario *@
+                <div class="formulario-producto">
+                    <div class="columna">
+                        <label>Cliente:</label>
+                        <select @bind="nuevoPedido.ClienteId">
+                            <option value="">Seleccione un cliente</option>
+                            @foreach (var cliente in clientes)
+                            {
+                                <option value="@cliente.Id">@cliente.NombreCompleto</option>
+                            }
+                        </select>
+                        @*  Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorUsuario))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorUsuario</div>
+                        }
+                    </div>
+
+                    <div class="columna">
+                        <label>Estado:</label>
+                        <select @bind="nuevoPedido.Estado">
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Entregado">Entregado</option>
+                        </select>
+                    </div>
+
+                    <div class="columna">
+                        <label>Producto:</label>
+                        <select @onchange="ProductoSeleccionado">
+                            <option value="">Seleccione un producto</option>
+                            @foreach (var producto in productos)
+                            {
+                                <option value="@producto.Id">@producto.Nombre</option>
+                            }
+                        </select>
+                        @*  Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorProducto))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorProducto</div>
+                        }
+                    </div>
+
+                    <div class="columna">
+                        <label>Stock:</label>
+                        <input type="number" step="0.01" value="@stockActual" readonly />
+                    </div>
+
+                    <div class="columna">
+                        <label>Cantidad:</label>
+                        <input type="number" @bind="detallePedidoTemp.Cantidad" @oninput="CalcularTotal" />
+                        @*  Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorCantidad))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorCantidad</div>
+                        }
+                    </div>
+
+                    <div class="columna">
+                        <label>Precio Unitario:</label>
+                        <input type="number" step="0.01" @bind="detallePedidoTemp.PrecioUnitario" readonly />
+                    </div>
+
+                    <button class="btn-cambiarestado" @onclick="AgregarDetalle">+ Agregar Detalle</button>
+                </div>
+
+                @if (detallesTemp.Any())
+                {
+                    <div class="detalles-agregados">
+                        <h4>Detalles del pedido</h4>
+                        <table class="tabla-productos">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio Unitario</th>
+                                    <th>Total</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var detalle in detallesTemp)
+                                {
+                                    var nombreProducto = productos.FirstOrDefault(p => p.Id == detalle.ProductoId)?.Nombre;
+                                    <tr>
+                                        <td>@nombreProducto</td>
+                                        <td>@detalle.Cantidad</td>
+                                        <td>@detalle.PrecioUnitario</td>
+                                        <td>@(detalle.Cantidad * detalle.PrecioUnitario)</td>
+                                        <td>
+                                            <button class="btn-eliminar-detalle" @onclick="() => EliminarDetalle(detalle)">Eliminar</button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                        <!-- Total General -->
+                        <div class="total-general">
+                            <strong>Total del pedido: </strong>
+                            @detallesTemp.Sum(d => d.Cantidad * d.PrecioUnitario).ToString("C")
+                        </div>
+                    </div>
+                }
+
+                <button class="btn-registrar" @onclick="GuardarPedido">Registrar</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<DetallePedidoDTO> detallesPedido = new();
+    private bool mostrarModal2 = false;
+    private int pedidoSeleccionadoId;
+
+    private async Task VerDetallePedido(int pedidoId)
+    {
+        pedidoSeleccionadoId = pedidoId;
+        detallesPedido = await Http.GetFromJsonAsync<List<DetallePedidoDTO>>($"https://localhost:44300/api/pedido/detalle/{pedidoId}");
+        mostrarModal2 = true;
+    }
+
+    private void CerrarModal()
+    {
+        mostrarModal2 = false;
+        detallesPedido.Clear();
+    }
+
+    public class DetallePedidoDTO
+    {
+        public int ProductoId { get; set; }
+        public string? NombreProducto { get; set; }
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; set; }
+        public decimal Subtotal => Cantidad * PrecioUnitario;
+    }
+}
+
+
+@code {
+    // Variables de validaciones
+    private string errorUsuario = string.Empty;
+    private string errorProducto = string.Empty;
+    private string errorCantidad = string.Empty;
+    private string errorPrecio = string.Empty;
+
+    // Variables de procesos
+    private string terminoBusqueda = string.Empty;
+    private List<PedidoDTO> pedidos = new();
+
+    private bool mostrarModal = false;
+
+    private Pedido nuevoPedido = new();
+    private List<DetallePedido> detallesTemp = new();
+    private DetallePedido detallePedidoTemp = new();
+    private List<Usuario> clientes = new();
+    private List<Producto> productos = new();
+    private int stockActual = 0;
+    private decimal totalCalculado = 0;
+
+    private async Task ProductoSeleccionado(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int productoId))
+        {
+            detallePedidoTemp.ProductoId = productoId;
+            var producto = productos.FirstOrDefault(p => p.Id == productoId);
+            if (producto != null)
+            {
+                detallePedidoTemp.PrecioUnitario = producto.PrecioVenta ?? 0;
+                stockActual = producto.StockActual;
+                CalcularTotal();
+            }
+        }
+    }
+    void CalcularTotal()
+    {
+        totalCalculado = detallesTemp.Sum(d => d.Cantidad * d.PrecioUnitario);
+        nuevoPedido.Total = totalCalculado;
+    }
+
+    void AgregarDetalle()
+    {
+        // Validaciones
+        // Limpiar errores anteriores
+        errorUsuario = string.Empty;
+        errorProducto = string.Empty;
+        errorCantidad = string.Empty;
+        errorPrecio = string.Empty;
+
+        bool hayError = false;
+
+        if (nuevoPedido.ClienteId == null || nuevoPedido.ClienteId == 0)
+        {
+            errorUsuario = "Debe seleccionar el cliente.";
+            hayError = true;
+        }
+
+        if (detallePedidoTemp.ProductoId == null || detallePedidoTemp.ProductoId == 0)
+        {
+            errorProducto = "Debe seleccionar un producto.";
+            hayError = true;
+        }
+
+        if (detallePedidoTemp.Cantidad == null || detallePedidoTemp.Cantidad <= 0)
+        {
+            errorCantidad = "La cantidad debe ser mayor a 0.";
+            hayError = true;
+        }
+
+        if (detallePedidoTemp.Cantidad > stockActual)
+        {
+            errorCantidad = $"La cantidad no puede ser mayor al stock disponible ({stockActual}).";
+            hayError = true;
+        }
+
+        if (hayError)
+            return;
+
+
+        // Procesos de Agregar
+        if (detallePedidoTemp.ProductoId > 0 && detallePedidoTemp.Cantidad > 0)
+        {
+            // Clonar el detalle temporal para no compartir referencia
+            detallesTemp.Add(new DetallePedido
+                {
+                    ProductoId = detallePedidoTemp.ProductoId,
+                    Cantidad = detallePedidoTemp.Cantidad,
+                    PrecioUnitario = detallePedidoTemp.PrecioUnitario
+                });
+
+            detallePedidoTemp = new DetallePedido();
+            CalcularTotal(); // Actualiza el total
+        }
+    }
+    async Task ObtenerPedidos()
+    {
+        pedidos = await Http.GetFromJsonAsync<List<PedidoDTO>>("https://localhost:44300/api/pedido/lista");
+    }
+
+    void EliminarDetalle(DetallePedido detalle)
+    {
+        detallesTemp.Remove(detalle);
+        CalcularTotal();
+    }
+    async Task GuardarPedido()
+    {
+        try
+        {
+            var pedidoAEnviar = new Pedido
+                {
+                    ClienteId = nuevoPedido.ClienteId,
+                    Estado = nuevoPedido.Estado,
+                    Total = totalCalculado,
+                    DetallePedidos = detallesTemp
+                };
+
+            var response = await Http.PostAsJsonAsync("https://localhost:44300/api/pedido/Crear", pedidoAEnviar);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModal = false;
+                await ObtenerPedidos();
+
+                // Limpiar detalles y reiniciar el formulario
+                detallesTemp.Clear();
+                totalCalculado = 0;
+                nuevoPedido = new Pedido();
+                detallePedidoTemp = new DetallePedido();
+
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine("Error al crear el pedido");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        pedidos = await Http.GetFromJsonAsync<List<PedidoDTO>>("https://localhost:44300/api/Pedido/lista") ?? new();
+        clientes = await Http.GetFromJsonAsync<List<Usuario>>("https://localhost:44300/api/usuario/lista");
+        productos = await Http.GetFromJsonAsync<List<Producto>>("https://localhost:44300/api/producto/lista");
+        await ObtenerPedidos();
+    }
+
+    private async Task BuscarPedidos()
+    {
+        if (string.IsNullOrWhiteSpace(terminoBusqueda))
+        {
+            pedidos = await Http.GetFromJsonAsync<List<PedidoDTO>>("https://localhost:44300/api/Pedido/lista") ?? new();
+        }
+        else
+        {
+            pedidos = await Http.GetFromJsonAsync<List<PedidoDTO>>($"https://localhost:44300/api/Pedido/buscar?termino={Uri.EscapeDataString(terminoBusqueda)}") ?? new();
+        }
+    }
+
+    // private async Task CambiarEstado(int pedidoId, string? nuevoEstado)
+    // {
+    //     if (!string.IsNullOrWhiteSpace(nuevoEstado))
+    //     {
+    //         var response = await Http.PutAsJsonAsync($"https://localhost:44300/api/Pedido/cambiar-estado/{pedidoId}", nuevoEstado);
+    //         if (response.IsSuccessStatusCode)
+    //         {
+    //             var pedido = pedidos.FirstOrDefault(p => p.Id == pedidoId);
+    //             if (pedido != null)
+    //             {
+    //                 pedido.Estado = nuevoEstado;
+    //                 StateHasChanged();
+    //             }
+    //         }
+    //     }
+    // }
+    // Este método se ejecutará cuando el usuario cambie el estado del pedido.
+    private async Task CambiarEstado(int id, ChangeEventArgs e)
+    {
+        var nuevoEstado = e.Value.ToString();
+
+        // Buscar el pedido en la lista local
+        var pedido = pedidos.FirstOrDefault(p => p.Id == id);
+        if (pedido != null)
+        {
+            pedido.Estado = nuevoEstado;
+
+            // Enviar la actualización al backend
+            var response = await Http.PutAsJsonAsync($"https://localhost:44300/api/pedido/{id}", pedido);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Estado del pedido {id} actualizado a {nuevoEstado}");
+            }
+            else
+            {
+                Console.WriteLine("Error al actualizar el estado");
+            }
+        }
+    }
+    void AgregarPedido()
+    {
+        nuevoPedido = new Pedido();
+        detallePedidoTemp = new DetallePedido();
+        mostrarModal = true;
+    }
+
+    // DTOs aquí o en un archivo separado
+    public class PedidoDTO
+    {
+        public int Id { get; set; }
+        public int ClienteId { get; set; }
+        public DateTime? FechaPedido { get; set; }
+        public string? Estado { get; set; }
+        public decimal? Total { get; set; }
+        public UsuarioDTO Usuario { get; set; }
+    }
+
+    public class UsuarioDTO
+    {
+        public string? NombreCompleto { get; set; }
+        public string? Telefono { get; set; }
+        public string? Direccion { get; set; }
+    }
+
+    public class Pedido
+    {
+        public int Id { get; set; }
+        public int ClienteId { get; set; }
+        public DateTime? FechaPedido { get; set; }
+        public string? Estado { get; set; }
+        public decimal? Total { get; set; }
+        public Usuario? Usuario { get; set; }
+
+        // Esta propiedad debe existir para poder agregar los detalles
+        public List<DetallePedido> DetallePedidos { get; set; } = new();
+    }
+
+    public class DetallePedido
+    {
+        public int Id { get; set; }
+        public int ProductoId { get; set; }
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; set; }
+        public int PedidoId { get; set; }  // Relación con el pedido
+    }
+
+
+    public class Usuario
+    {
+        public int Id { get; set; }
+        public string? NombreCompleto { get; set; }
+        public string? Telefono { get; set; }
+        public string? Direccion { get; set; }
+    }
+
+    public class Producto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public int StockActual { get; set; }
+        public decimal? PrecioVenta { get; set; }
+    }
+}
+
+
+
+<style>
+    /* Estilo general */
+
+    .contenido {
+        max-width: 1200px;
+        margin: auto;
+        background-color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Barra superior */
+    .barra-superior {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .titulo-seccion {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #1f2937;
+    }
+
+    /* Botón agregar */
+    .btn-agregar {
+        background-color: #bb8e6b;
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+        .btn-agregar:hover {
+            background-color: #ede0d4;
+            color: #bb8e6b;
+        }
+
+    .btn-cambiarestado {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+        .btn-cambiarestado:hover {
+            background-color: #bb8e6b;
+            color: #ede0d4;
+        }
+
+
+
+    /* Tabla */
+    .tabla-contenedor {
+        overflow-x: auto;
+    }
+
+    .tabla-productos {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .tabla-productos th,
+        .tabla-productos td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabla-productos th {
+            background-color: #EAE6E3;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .tabla-productos tr:hover {
+            background-color: #F9F4EF;
+        }
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+    }
+
+    .modal-contenido {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 700px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        position: relative;
+    }
+
+    /* Botón cerrar modal */
+    .cerrar-modal {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+    /* Formularios */
+    .formulario-producto {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .columna label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .columna input,
+    .columna select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+    }
+
+    /* Mensaje error */
+    .mensaje-error {
+        margin-top: 0.25rem;
+        font-size: 0.85rem;
+        color: #dc2626;
+    }
+
+    /* Titulo de detalle */
+    h4 {
+        padding-top: 15px;
+    }
+
+    /* Botones */
+    .btn-registrar,
+    .btn-eliminar-detalle {
+        color: white;
+        border: none;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: background-color 0.2s ease;
+    }
+
+    .btn-eliminar-detalle {
+        background-color: #ef4444;
+    }
+
+    .btn-registrar {
+        background-color: #10b981;
+    }
+
+    .btn-eliminar-detalle:hover {
+        background-color: #dc2626;
+    }
+
+    .btn-registrar:hover {
+        background-color: #059669;
+    }
+
+    /* Total general */
+    .total-general {
+        text-align: center;
+        margin-top: 1rem;
+        font-size: 1.2rem;
+        font-weight: bold;
+        color: #3f2f2f;
+        background-color: #F0EAE4;
+        padding: 0.7rem;
+        border-radius: 10px;
+        box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    .btn-detalle,
+    .btn-cerrar {
+        padding: 8px 16px;
+        margin-top: 10px;
+        background-color: #007bff;
+        border: none;
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-cerrar {
+        background-color: #dc3545;
+
+    }
+</style>

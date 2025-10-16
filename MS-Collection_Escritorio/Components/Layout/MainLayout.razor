@@ -1,0 +1,174 @@
+﻿
+ @inherits LayoutComponentBase
+ @inject NavigationManager Navigation
+@code {
+    public async Task AbrirPedidos()
+    {
+        Navigation.NavigateTo("/Pedido");
+    }
+    public async Task AbrirCompras()
+    {
+        Navigation.NavigateTo("/Compras");
+    }
+    public async Task AbrirProveedores()
+    {
+        Navigation.NavigateTo("/Proveedores");
+    }
+    public async Task AbrirProductos()
+    {
+        Navigation.NavigateTo("/Productos");
+    }
+    public async Task AbrirCategorias()
+    {
+        Navigation.NavigateTo("/Categorias");
+    }
+    public async Task AbrirInventario()
+    {
+        Navigation.NavigateTo("/Inventario");
+    }
+    public async Task AbrirUsuario()
+    {
+        Navigation.NavigateTo("/Usuarios");
+    }
+    public async Task AbrirReportes()
+    {
+        await Launcher.Default.OpenAsync("https://localhost:44345/reportes");
+    }
+}
+
+
+<div class="main-container container-fluid p-0">
+    <!-- ENCABEZADO SUPERIOR -->
+    <header class="header d-flex justify-content-between align-items-center px-5 py-3">
+        <div class="d-flex align-items-center gap-3">
+            <img src="images/logo.png" alt="Logo" class="logo" />
+        </div>
+        <h1 class="title m-0">MS Joyería y relojería</h1>
+        <div class="account d-flex align-items-center gap-2">
+            <i class="fas fa-user-circle fa-lg"></i>
+            <NavLink href="/" class="text-decoration-none text-dark">
+                <span>Cerrar sesión</span>
+            </NavLink>
+        </div>
+    </header>
+
+    <!-- CUERPO CON LATERAL Y CONTENIDO -->
+    <div class="d-flex flex-column flex-md-row body-container">
+        <!-- MENÚ LATERAL -->
+        <aside class="sidebar d-flex flex-md-column flex-row flex-wrap justify-content-around p-2 p-md-3">
+            <button class="sidebar-btn mb-2" @onclick="AbrirPedidos"><i class="icono">📦</i>Pedidos</button>
+            <button class="sidebar-btn mb-2" @onclick="AbrirCompras"><i class="icono">🧾</i>Compra</button>
+            <button class="sidebar-btn mb-2" @onclick="AbrirProveedores"><i class=" icono">👥</i>Proveedores</button>
+            <button class="sidebar-btn mb-2" @onclick="AbrirProductos"><i class="icono">📦</i>Productos</button>
+            <button class="sidebar-btn mb-2" @onclick="AbrirCategorias"><i class="icono">🔲</i>Categoría</button>
+            <button class="sidebar-btn mb-2" @onclick="AbrirUsuario"><i class=" icono">👥</i>Usuarios</button>
+            <button class="sidebar-btn mb-2" @onclick="AbrirInventario"><i class="icono">📦</i>Inventario</button>
+            <button class="sidebar-btn mb-2" @onclick="AbrirReportes"><i class="icono">📈</i>Reportes</button>
+
+            @*    <li class="activo"><i class="icono">📦</i> Productos</li>
+                <li><i class="icono">🔲</i> Categoría</li>
+                <li><i class="icono">👥</i> Proveedores</li>
+                <li><i class="icono">🧾</i> Compra</li>
+                <li><i class="icono">📋</i> Pedidos</li>
+                <li><i class="icono">📦</i> Inventario</li>
+                <li><i class="icono">📈</i> Reportes</li> *@
+
+        </aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <main class="main-content p-3">
+            @Body
+        </main>
+    </div>
+</div>
+
+<style>
+    /* COLORES Y FUENTE */
+    body, .main-container {
+        font-family: 'Segoe UI', sans-serif;
+        background-color: #f4e6db; /* Un tono suave para el fondo */
+        height: 100vh;
+    }
+
+    .header {
+        background: linear-gradient(to right, #d9a98b, #ede0d4);
+        box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2);
+        color: white;
+        flex-wrap: wrap;
+        justify-content: space-between;
+    }
+
+    .logo {
+        height: 50px;
+        padding-left: 50px;
+    }
+
+    .title {
+        font-size: 1.8rem;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    .account {
+        font-weight: bold;
+        color: white;
+    }
+
+    .sidebar {
+        background: linear-gradient(to right, #eed7c4, #ede0d4) !important;
+     
+        min-width: 180px;
+    }
+
+
+    .sidebar-btn {
+        background-color: #d9a98b; /* El mismo tono suave para los botones */
+        border: none;
+        color: white;
+        font-weight: bold;
+        padding: 0.8rem 1rem;
+        width: 100%;
+        text-align: center;
+        border-radius: 5px;
+        transition: background-color 0.3s;
+    }
+
+        .sidebar-btn:hover {
+            background-color: #bb8e6b;
+        }
+
+    .main-content {
+        background-color: #fef3e3; /* Un tono claro pero relacionado con el fondo */
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 0 0 8px 8px;
+    }
+
+    /* RESPONSIVE MEJORADO */
+    @@media (max-width: 768px) {
+        .sidebar
+
+    {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+    }
+
+    .sidebar-btn {
+        flex: 1 1 45%;
+        margin: 0.25rem;
+    }
+
+    .header {
+        justify-content: center;
+        text-align: center;
+    }
+
+        .d-flex flex-column flex-md-row body-container{
+            background-color: pink;
+        }
+
+    }
+</style>

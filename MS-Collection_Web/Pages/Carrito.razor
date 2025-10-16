@@ -1,0 +1,209 @@
+﻿@page "/Carrito"
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject SessionService SessionService
+@inject CarritoService carritoService
+@using MS_Collection_WbApi.Models
+@using MS_Collection_Web.Models
+
+<PageTitle>Productos Agregados</PageTitle>
+
+<style>
+    .carrito-page {
+        max-width: 1100px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background-color: #f9f6f4;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+        .carrito-page h2 {
+            text-align: center;
+            color: #3a2e2c;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+        }
+
+    .carrito-layout {
+        display: flex;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+
+    .lista-productos {
+        flex: 2;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .producto-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: white;
+        padding: 1rem;
+        border-radius: 15px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .producto-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+        .producto-info img {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+    .producto-info-texto h6 {
+        margin: 0;
+        font-weight: bold;
+    }
+
+    .producto-info-texto p {
+        margin: 0;
+        font-size: 0.9rem;
+    }
+
+    .producto-precio {
+        background-color: #f0bda7;
+        color: white;
+        font-weight: bold;
+        padding: 0.4rem 1rem;
+        border-radius: 50px;
+        font-size: 0.95rem;
+    }
+
+    .btn-eliminar {
+        background: none;
+        border: none;
+        font-size: 1.4rem;
+        cursor: pointer;
+        color: #3a2e2c;
+    }
+
+    .resumen-total {
+        flex: 1;
+        background: linear-gradient(to bottom, #c59180, #f4ebe7);
+        padding: 2rem;
+        border-radius: 20px;
+        color: white;
+        text-align: center;
+        min-width: 240px;
+    }
+
+        .resumen-total h4 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .resumen-total .total {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 1rem 0;
+        }
+
+    .btn-pago {
+        background-color: white;
+        color: #c59180;
+        border: none;
+        padding: 0.8rem 1rem;
+        font-weight: bold;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: background 0.3s ease;
+        margin: 0 auto;
+    }
+
+        .btn-pago:hover {
+            background-color: #fdf4f1;
+        }
+
+
+</style>
+
+<div class="carrito-page">
+    <h2>Productos Agregados</h2>
+
+    <div class="carrito-layout">
+        <!-- Lista de productos -->
+        <div class="lista-productos">
+            @if (Productos.Any())
+            {
+                @foreach (var producto in Productos)
+                {
+                    <div class="producto-card">
+                        <div class="producto-info">
+                            <img src="@producto.ImagenURL" alt="@producto.Nombre" />
+                            <div class="producto-info-texto">
+                                <h6>@($"{producto.Cantidad} x {producto.Nombre}")</h6>
+                                <p>@producto.Codigo</p>
+                                <p>$@((producto.PrecioUnitario ).ToString("N2"))</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="producto-precio">
+                                $@(((producto.PrecioUnitario) * (producto.Cantidad)).ToString("N2"))
+                            </div>
+                            <button class="btn-eliminar" @onclick="() => EliminarProductoAsync(producto.Producto)">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <p>No hay productos en el carrito.</p>
+            }
+        </div>
+
+        <!-- Resumen total -->
+        <div class="resumen-total">
+            <h4>Total</h4>
+            <div class="total">$@Total.ToString("N2")</div>
+            <button class="btn-pago" @onclick="RealizarPago">
+                <i class="bi bi-bag-check-fill"></i> Proceder al pago
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CarritoItem> Productos => carritoService.ObtenerProductos();
+
+    private decimal Total => carritoService.CalcularTotal();
+
+    private async Task EliminarProductoAsync(Producto producto)
+    {
+        carritoService.EliminarProducto(producto.Id);
+        await InvokeAsync(StateHasChanged); // Asegura el refresco de la vista si es necesario
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await SessionService.CheckSessionAsync();
+    }
+
+    private void RealizarPago()
+    {
+        if (SessionService.IsAuthenticated)
+        {
+            NavigationManager.NavigateTo("/Datospago");
+        }
+        else
+        {
+            NavigationManager.NavigateTo("/CrearCuenta");
+        }
+    }
+}

@@ -1,0 +1,430 @@
+﻿@page "/Proveedores"
+@using System.Text.RegularExpressions
+
+<div class="contenedor-principal">
+
+    <main class="contenido">
+        <div class="barra-superior">
+            <div class="titulo-seccion">Proveedores</div>
+            <button class="btn-agregar" @onclick="AgregarProveedor">+ Agregar</button>
+        </div>
+
+        <div class="tabla-contenedor">
+            <table class="tabla-proveedores">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Contacto</th>
+                        <th>Teléfono</th>
+                        <th>Editar</th>
+                        <th>Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var proveedor in listaProveedores)
+                    {
+                            <tr>
+                                <td>@proveedor.Nombre</td>
+                                <td>@proveedor.Contacto</td>
+                                <td>@proveedor.Telefono</td>
+                                <td><button class="btn-icono" @onclick="() => EditarProveedor(proveedor)">✏</button></td>
+                                <td><button class="btn-icono" @onclick="() => EliminarProveedor(proveedor.Id)">🗑</button></td>
+                            </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    @if (mostrarModalProveedor)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <button class="cerrar-modal" @onclick="()=>mostrarModalProveedor=false">×</button>
+                <h2>@(editando ? "Editar Proveedor" : "Agregar Proveedor")</h2>
+                <div class="formulario-producto">
+                    <div class="columna">
+                        <input type="text" placeholder="Nombre" @bind="nuevoProveedor.Nombre" />
+                        @if (!string.IsNullOrWhiteSpace(errorNombreProveedor))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i>@errorNombreProveedor</div>
+                        }
+
+                        <input type="text" placeholder="Teléfono" @bind="nuevoProveedor.Telefono" />
+                        @if (!string.IsNullOrWhiteSpace(errorTelefonoProveedor))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i>@errorTelefonoProveedor</div>
+                        }
+                    </div>
+                    <div class="columna">
+                        <input type="text" placeholder="Correo" @bind="nuevoProveedor.Contacto" />
+                        @if (!string.IsNullOrWhiteSpace(errorCorreoProveedor))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i>@errorCorreoProveedor</div>
+                        }
+                    </div>
+                </div>
+                <button class="btn-registrar" @onclick="GuardarProveedor">
+                    @(editando ? "Guardar Cambios" : "Registrar")
+                </button>
+            </div>
+        </div>
+    }
+
+    @if (mostrarModalConfirmacion)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <h2>¿Estás seguro?</h2>
+                <p>¿Deseas eliminar al proveedor <strong>@proveedorAEliminar?.Nombre</strong>?</p>
+                <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="btn-registrar" style="background-color: #d9534f;" @onclick="ConfirmarEliminar">Sí, eliminar</button>
+                    <button class="btn-registrar" style="background-color: #6c757d;" @onclick="()=>mostrarModalConfirmacion=false">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+
+@code {
+    // Variable de validación
+    string errorNombreProveedor = "";
+    string errorTelefonoProveedor = "";
+    string errorCorreoProveedor = "";
+
+    // Variables de procesos
+    bool mostrarModalProveedor = false;
+    bool editando = false;
+
+    private Proveedore nuevoProveedor = new();
+    private List<Proveedore> listaProveedores = new();
+
+    [Inject]
+    public HttpClient Http { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ObtenerProveedores();
+    }
+
+    void AgregarProveedor()
+    {
+        nuevoProveedor = new();
+        editando = false;
+        mostrarModalProveedor = true;
+    }
+
+    void EditarProveedor(Proveedore proveedor)
+    {
+        nuevoProveedor = new Proveedore
+            {
+                Id = proveedor.Id,
+                Nombre = proveedor.Nombre,
+                Contacto = proveedor.Contacto,
+                Telefono = proveedor.Telefono
+            };
+        editando = true;
+        mostrarModalProveedor = true;
+    }
+
+    void LimpiarErroresProveedor()
+    {
+        errorNombreProveedor = "";
+        errorTelefonoProveedor = "";
+        errorCorreoProveedor = "";
+    }
+
+    async Task GuardarProveedor()
+    {
+        LimpiarErroresProveedor();
+
+        bool tieneErrores = false;
+
+        var regexNombre = new Regex("^[a-zA-ZÁÉÍÓÚáéíóúÑñ ]+$");
+        var regexTelefono = new Regex(@"^\d{3}$-\d{8}$");
+        var regexCorreo = new Regex(@"^[^@\s]+@[^@\s]+\.(com)$");
+
+        // Nombre
+        if (string.IsNullOrWhiteSpace(nuevoProveedor.Nombre) || !regexNombre.IsMatch(nuevoProveedor.Nombre))
+        {
+            errorNombreProveedor = "Ingrese un nombre válido (sin símbolos).";
+            tieneErrores = true;
+        }
+
+        // Teléfono
+        if (string.IsNullOrWhiteSpace(nuevoProveedor.Telefono) || !regexTelefono.IsMatch(nuevoProveedor.Telefono))
+        {
+            errorTelefonoProveedor = "Ingrese un teléfono con el formato XXX-XXXXXXXX.";
+            tieneErrores = true;
+        }
+
+        // Correo
+        if (!string.IsNullOrWhiteSpace(nuevoProveedor.Contacto) && !regexCorreo.IsMatch(nuevoProveedor.Contacto))
+        {
+            errorCorreoProveedor = "Ingrese un correo válido (ej: usuario@dominio.com).";
+            tieneErrores = true;
+        }
+
+        if (tieneErrores)
+            return;
+
+        if (editando)
+        {
+            var response = await Http.PutAsJsonAsync($"https://localhost:44300/api/proveedor/{nuevoProveedor.Id}", nuevoProveedor);
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModalProveedor = false;
+                await ObtenerProveedores();
+            }
+        }
+        else
+        {
+            var response = await Http.PostAsJsonAsync("https://localhost:44300/api/proveedor", nuevoProveedor);
+            if (response.IsSuccessStatusCode)
+            {
+                mostrarModalProveedor = false;
+                await ObtenerProveedores();
+            }
+        }
+    }
+
+    bool mostrarModalConfirmacion = false;
+    Proveedore? proveedorAEliminar;
+
+    void EliminarProveedor(int id)
+    {
+        proveedorAEliminar = listaProveedores.FirstOrDefault(p => p.Id == id);
+        mostrarModalConfirmacion = true;
+    }
+
+    async Task ConfirmarEliminar()
+    {
+        if (proveedorAEliminar != null)
+        {
+            var response = await Http.DeleteAsync($"https://localhost:44300/api/proveedor/{proveedorAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await ObtenerProveedores();
+                mostrarModalConfirmacion = false;
+                proveedorAEliminar = null;
+            }
+        }
+    }
+
+    async Task ObtenerProveedores()
+    {
+        listaProveedores = await Http.GetFromJsonAsync<List<Proveedore>>("https://localhost:44300/api/proveedor/lista");
+    }
+
+    public class Proveedore
+    {
+        public int Id { get; set; }
+        public string? Nombre { get; set; }
+        public string? Contacto { get; set; }
+        public string? Telefono { get; set; }
+    }
+}
+<style>
+    /* Estilo general */
+
+    .contenido {
+        max-width: 1200px;
+        margin: auto;
+        background-color: white;
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Barra superior */
+    .barra-superior {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .titulo-seccion {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #1f2937;
+    }
+
+    /* Botón agregar */
+    .btn-agregar {
+        background-color: #bb8e6b;
+        color: #fff;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+        .btn-agregar:hover {
+            background-color: #ede0d4;
+            color: #bb8e6b;
+        }
+
+    /* Tabla */
+    .tabla-contenedor {
+        overflow-x: auto;
+    }
+
+    .tabla-proveedores {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .tabla-proveedores th,
+        .tabla-proveedores td {
+            padding: 0.8rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .tabla-proveedores th {
+            background-color: #EAE6E3;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .tabla-proveedores tr:hover {
+            background-color: #F9F4EF;
+        }
+
+    /* Botones de iconos: editar y eliminar */
+    .btn-icono {
+        border: none;
+        padding: 0.45rem 0.6rem;
+        border-radius: 0.5rem;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Editar */
+    .btn-editar {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+    }
+
+        .btn-editar:hover {
+            background-color: #d9a98b;
+            color: #fff;
+            transform: scale(1.08);
+        }
+
+    /* Eliminar */
+    .btn-eliminar {
+        background-color: #ede0d4;
+        color: #bb8e6b;
+    }
+
+        .btn-eliminar:hover {
+            background-color: #bb8e6b;
+            color: #fff;
+            transform: scale(1.08);
+        }
+
+
+    /* Modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+    }
+
+    .modal-contenido {
+        background: white;
+        padding: 2rem;
+        border-radius: 20px;
+        width: 90%;
+        max-width: 700px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        position: relative;
+    }
+
+    /* Botón cerrar modal */
+    .cerrar-modal {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+    /* Formularios */
+    .formulario-proveedores {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .columna label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .columna input,
+    .columna select {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+    }
+
+    /* Mensaje error */
+    .mensaje-error {
+        margin-top: 0.25rem;
+        font-size: 0.85rem;
+        color: #dc2626;
+    }
+
+    /* Botones */
+    .btn-registrar,
+    .btn-eliminar-detalle {
+        color: white;
+        border: none;
+        padding: 0.6rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 1rem;
+        transition: background-color 0.2s ease;
+    }
+
+    .btn-eliminar-detalle {
+        background-color: #ef4444;
+    }
+
+    .btn-registrar {
+        background-color: #10b981;
+    }
+
+    .btn-eliminar-detalle:hover {
+        background-color: #dc2626;
+    }
+
+    .btn-registrar:hover {
+        background-color: #059669;
+
+    }
+
+</style>

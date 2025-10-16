@@ -1,0 +1,182 @@
+﻿@page "/CambiarContrasena"
+<PageTitle>Cambiar Contraseña</PageTitle>
+@inject HttpClient Http
+@inject NavigationManager Navigation
+<style>
+    .cambiar-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 3rem 1rem;
+        min-height: 100vh;
+        background: linear-gradient(to bottom, #c59180, #f4ebe7);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .cambiar-box {
+        background: white;
+        width: 100%;
+        max-width: 450px;
+        border-radius: 12px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+    }
+
+        .cambiar-box h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #333;
+            text-align: center;
+        }
+
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 0.3rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.6rem 0.8rem;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+
+    .btn-wrapper {
+        text-align: center;
+    }
+
+    .submit-btn {
+        margin-top: 1.5rem;
+        background-color: #c59180;
+        color: white;
+        font-weight: bold;
+        border: none;
+        padding: 0.8rem 1.5rem;
+        font-size: 1rem;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+        .submit-btn:hover {
+            background-color: #a26c5e;
+        }
+
+    .error-msg {
+        color: #d9534f;
+        font-size: 0.9rem;
+        margin-top: 0.3rem;
+    }
+
+    @@media (max-width: 600px) {
+        .cambiar-box
+
+    {
+        padding: 1.5rem;
+    }
+
+    }
+</style>
+
+<!-- Tu estilo se mantiene igual -->
+
+<div class="cambiar-container">
+    <div class="cambiar-box">
+        <h3><i class="bi bi-lock-fill me-2"></i> Cambiar Contraseña</h3>
+
+        <EditForm Model="@modelo" OnValidSubmit="EnviarCambio">
+            <div class="form-group">
+                <label>Nombre de usuario</label>
+                <InputText type="text" @bind-Value="modelo.User" class="form-control" placeholder="Ingresa tu nombre de usuario" />
+            </div>
+
+            <div class="form-group">
+                <label>Nueva contraseña</label>
+                <InputText type="password" @bind-Value="modelo.NuevaContrasena" class="form-control" placeholder="Nueva contraseña segura" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(errorMensaje))
+            {
+                <div class="error-msg">@errorMensaje</div>
+            }
+
+            @if (!string.IsNullOrEmpty(exitoMensaje))
+            {
+                <div class="text-success">@exitoMensaje</div>
+            }
+
+            <div class="btn-wrapper">
+                <button type="submit" class="submit-btn">
+                    <i class="bi bi-arrow-repeat me-1"></i> Cambiar contraseña
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private CambioContrasenaDTO modelo = new();
+    private string errorMensaje;
+    private string exitoMensaje;
+    @using System.Text.Json
+    private async Task EnviarCambio()
+    {
+        errorMensaje = string.Empty;
+        exitoMensaje = string.Empty;
+
+        try
+        {
+            var body = new
+            {
+                User = modelo.User,
+                NuevaContrasena = modelo.NuevaContrasena
+            };
+
+            // 🔍 Verifica aquí el JSON que se está enviando
+            Console.WriteLine(JsonSerializer.Serialize(body));
+
+            // Envía al servidor
+            var response = await Http.PutAsJsonAsync("https://localhost:44300/api/Usuario/CambiarContrasenaPorUsuario", body);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var contenido = await response.Content.ReadAsStringAsync();
+                var resultado = JsonSerializer.Deserialize<RespuestaDTO>(contenido, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                exitoMensaje = resultado?.Mensaje ?? "Contraseña cambiada correctamente.";
+                modelo = new CambioContrasenaDTO(); // Limpiar formulario
+            }
+            else
+            {
+                var contenidoError = await response.Content.ReadAsStringAsync();
+                var error = JsonSerializer.Deserialize<RespuestaDTO>(contenidoError, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                errorMensaje = error?.Mensaje ?? "Ocurrió un error al cambiar la contraseña.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMensaje = $"Error inesperado: {ex.Message}";
+        }
+    }
+
+    public class RespuestaDTO
+    {
+        public string Mensaje { get; set; }
+    }
+}
+
+

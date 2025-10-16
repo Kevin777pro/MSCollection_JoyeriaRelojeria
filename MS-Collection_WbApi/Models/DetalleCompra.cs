@@ -1,0 +1,24 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+
+namespace MS_Collection_WbApi.Models;
+
+public partial class DetalleCompra
+{
+    public int Id { get; set; }
+
+    public int? CompraId { get; set; }
+
+    public int? ProductoId { get; set; }
+
+    public int? Cantidad { get; set; }
+
+    public decimal? PrecioUnitario { get; set; }
+    [JsonIgnore]
+
+    public virtual Compra? Compra { get; set; }
+    [JsonIgnore]
+
+    public virtual Producto? Producto { get; set; }
+}

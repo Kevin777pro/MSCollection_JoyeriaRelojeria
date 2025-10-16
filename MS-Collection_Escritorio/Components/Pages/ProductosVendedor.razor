@@ -1,0 +1,494 @@
+﻿@page "/ProductosVendedor"
+@using System.Net.Http.Json
+@using System.Text.RegularExpressions
+@inject HttpClient Http
+@layout Layout.VendedorLayout
+
+<div class="contenedor-principal">
+
+    <main class="contenido">
+        <div class="barra-superior">
+            <div class="titulo-seccion">Productos</div>
+            <button class="btn-agregar" @onclick="NuevoProducto">+ Agregar</button>
+        </div>
+
+        <table class="tabla-productos">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Color</th>
+                    <th>Categoría</th>
+                    <th>Material</th>
+                    <th>Peso</th>
+                    <th>Precio de venta</th>
+                    <th>Stock</th>
+                    <th>Imagen</th>
+                    <th>Editar</th>
+                    <th>Eliminar</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var producto in listaProductos)
+                {
+                    <tr>
+                        <td>@producto.Nombre</td>
+                        <td>@producto.Codigo</td>
+                        <td>@producto.Descripción</td>
+                        <td>@producto.Color</td>
+                        <td>@producto.Categoria?.Nombre</td>
+                        <td>@producto.Material</td>
+                        <td>@producto.Peso</td>
+                        <td>@producto.PrecioVenta</td>
+                        <td>@producto.StockActual</td>
+                        <td><img src="@producto.ImagenURL" alt="Imagen" width="50" height="50" /></td>
+                        <td><button class="btn-icono" @onclick="() => EditarProducto(producto)">✏</button></td>
+                        <td><button class="btn-icono" @onclick="() => EliminarProducto(producto.Id)">🗑</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </main>
+
+    @if (mostrarModal)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <button class="cerrar-modal" @onclick="()=>mostrarModal=false">×</button>
+                <h2>@(productoSeleccionado.Id == 0 ? "Agregar Producto" : "Editar Producto")</h2>
+                <div class="formulario-producto">
+                    <div class="columna">
+                        <input type="text" @bind="productoSeleccionado.Nombre" placeholder="Nombre" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorNombre))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorNombre</div>
+                        }
+                        <input type="text" @bind="productoSeleccionado.Codigo" placeholder="Código" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorCodigo))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorCodigo</div>
+                        }
+                        <input type="text" @bind="productoSeleccionado.Descripción" placeholder="Descripción" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorDescripcion))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorDescripcion</div>
+                        }
+                        <input type="text" @bind="productoSeleccionado.Color" placeholder="Color" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorColor))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorColor</div>
+                        }
+                        <select @bind="productoSeleccionado.CategoriaId">
+                            <option disabled value="0">Categoría</option>
+                            @foreach (var categoria in listaCategorias)
+                            {
+                                <option value="@categoria.Id">@categoria.Nombre</option>
+                            }
+                        </select>
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorCategoria))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorCategoria</div>
+                        }
+                    </div>
+                    <div class="columna">
+                        <input type="text" @bind="productoSeleccionado.Material" placeholder="Material" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorMaterial))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorMaterial</div>
+                        }
+                        <input type="text" @bind="productoSeleccionado.Peso" placeholder="Peso" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorPeso))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorPeso</div>
+                        }
+                        <input type="number" @bind="productoSeleccionado.PrecioVenta" placeholder="Precio de venta" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorPrecio))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorPrecio</div>
+                        }
+                        <input type="number" @bind="productoSeleccionado.StockActual" placeholder="Stock" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorStock))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorStock</div>
+                        }
+                        <input type="text" @bind="productoSeleccionado.ImagenURL" placeholder="URL Imagen" />
+                        @* Validación *@
+                        @if (!string.IsNullOrWhiteSpace(errorUrl))
+                        {
+                            <div class="mensaje-error"><i class="fas fa-exclamation-circle"></i> @errorUrl</div>
+                        }
+                    </div>
+                </div>
+                <button class="btn-registrar" @onclick="GuardarProducto">Registrar</button>
+            </div>
+        </div>
+    }
+
+    @if (mostrarModalConfirmacion)
+    {
+        <div class="modal-overlay">
+            <div class="modal-contenido">
+                <h2>¿Estás seguro?</h2>
+                <p>¿Deseas eliminar el producto <strong>@productoAEliminar?.Nombre</strong>?</p>
+                <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="btn-registrar" style="background-color: #d9534f;" @onclick="ConfirmarEliminarProducto">Sí, eliminar</button>
+                    <button class="btn-registrar" style="background-color: #6c757d;" @onclick="()=>mostrarModalConfirmacion=false">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    // Variables de validaciones
+    private string errorNombre = "", errorCodigo = "", errorDescripcion = "", errorColor = "", errorCategoria = "";
+    private string errorMaterial = "", errorPeso = "", errorPrecio = "", errorStock = "", errorUrl = "";
+
+    // Variables de procesos
+    bool mostrarModal = false;
+    List<Producto> listaProductos = new();
+    List<Categoria> listaCategorias = new();
+    Producto productoSeleccionado = new();
+
+    bool mostrarModalConfirmacion = false;
+    Producto? productoAEliminar = null;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    async Task CargarDatos()
+    {
+        listaProductos = await Http.GetFromJsonAsync<List<Producto>>("api/producto/lista");
+        listaCategorias = await Http.GetFromJsonAsync<List<Categoria>>("api/categoria/lista");
+    }
+
+    void NuevoProducto()
+    {
+        productoSeleccionado = new Producto();
+        mostrarModal = true;
+    }
+
+    void EditarProducto(Producto producto)
+    {
+        productoSeleccionado = new Producto
+            {
+                Id = producto.Id,
+                Nombre = producto.Nombre,
+                Codigo = producto.Codigo,
+                Descripción = producto.Descripción,
+                Color = producto.Color,
+                CategoriaId = producto.CategoriaId,
+                Material = producto.Material,
+                Peso = producto.Peso,
+                PrecioVenta = producto.PrecioVenta,
+                StockActual = producto.StockActual,
+                ImagenURL = producto.ImagenURL
+            };
+        mostrarModal = true;
+    }
+
+    async Task GuardarProducto()
+    {
+        // Validaciones
+        // Limpiar errores
+        errorNombre = errorCodigo = errorDescripcion = errorColor = errorCategoria = "";
+        errorMaterial = errorPeso = errorPrecio = errorStock = errorUrl = "";
+
+        bool hayError = false;
+
+        Regex sinSimbolos = new(@"^[a-zA-Z0-9\s]*$");
+
+        if (string.IsNullOrWhiteSpace(productoSeleccionado.Nombre) || !sinSimbolos.IsMatch(productoSeleccionado.Nombre))
+        {
+            errorNombre = "El nombre es requerido y no debe contener símbolos.";
+            hayError = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(productoSeleccionado.Codigo))
+        {
+            errorCodigo = "El código es requerido.";
+            hayError = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(productoSeleccionado.Descripción))
+        {
+            errorDescripcion = "La descripción es requerida.";
+            hayError = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(productoSeleccionado.Color) && !sinSimbolos.IsMatch(productoSeleccionado.Color))
+        {
+            errorColor = "El color no debe contener símbolos.";
+            hayError = true;
+        }
+
+        if (productoSeleccionado.CategoriaId == 0)
+        {
+            errorCategoria = "Debe seleccionar una categoría.";
+            hayError = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(productoSeleccionado.Material) && !sinSimbolos.IsMatch(productoSeleccionado.Material))
+        {
+            errorMaterial = "El material no debe contener símbolos.";
+            hayError = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(productoSeleccionado.Peso))
+        {
+            errorPeso = "El peso no debe contener símbolos.";
+            hayError = true;
+        }
+
+        if (productoSeleccionado.PrecioVenta == null || productoSeleccionado.PrecioVenta <= 0)
+        {
+            errorPrecio = "El precio de venta es requerido y debe ser mayor a 0.";
+            hayError = true;
+        }
+
+        if (productoSeleccionado.StockActual < 0 || productoSeleccionado.StockActual.ToString().Contains("."))
+        {
+            errorStock = "El stock debe ser un número entero positivo.";
+            hayError = true;
+        }
+
+        if (string.IsNullOrWhiteSpace(productoSeleccionado.ImagenURL))
+        {
+            errorUrl = "La URL de imagen es requerida.";
+            hayError = true;
+        }
+
+        if (hayError)
+            return;
+
+        //Proceso de Guardado
+        if (productoSeleccionado.Id == 0)
+        {
+            await Http.PostAsJsonAsync("api/producto/Crear", productoSeleccionado);
+        }
+        else
+        {
+            await Http.PutAsJsonAsync($"api/producto/{productoSeleccionado.Id}", productoSeleccionado);
+        }
+        mostrarModal = false;
+        await CargarDatos();
+    }
+
+    void EliminarProducto(int id)
+    {
+        productoAEliminar = listaProductos.FirstOrDefault(p => p.Id == id);
+        mostrarModalConfirmacion = true;
+    }
+
+    async Task ConfirmarEliminarProducto()
+    {
+        if (productoAEliminar != null)
+        {
+            var response = await Http.DeleteAsync($"api/producto/{productoAEliminar.Id}");
+            if (response.IsSuccessStatusCode)
+            {
+                await CargarDatos();
+                mostrarModalConfirmacion = false;
+                productoAEliminar = null;
+            }
+        }
+    }
+
+    void MostrarConfirmacionEliminarProducto(Producto producto)
+    {
+        productoAEliminar = producto;
+        mostrarModalConfirmacion = true;
+    }
+
+    public class Producto
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; }
+        public string Descripción { get; set; }
+        public string Codigo { get; set; }
+        public int CategoriaId { get; set; }
+        public string? Color { get; set; }
+        public string? Material { get; set; }
+        public string? Peso { get; set; }
+        public decimal PrecioVenta { get; set; }
+        public int StockActual { get; set; }
+        public string ImagenURL { get; set; }
+        public Categoria? Categoria { get; set; }
+
+        public Producto() { }
+    }
+
+    public class Categoria
+    {
+        public int Id { get; set; }
+        public string Nombre { get; set; }
+    }
+}
+
+<style>
+    .mensaje-error {
+        color: red;
+        font-size: 0.9em;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+        .mensaje-error i {
+            color: red;
+        }
+
+    .tabla-productos {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 1rem;
+    }
+
+        .tabla-productos th, .tabla-productos td {
+            padding: 0.5rem;
+            text-align: center;
+            border: 1px solid #f5d3b5;
+            background: #fff1dc;
+            word-wrap: break-word;
+        }
+
+        .tabla-productos th {
+            background-color: #ffdbab;
+            font-weight: bold;
+            color: #3f2f2f;
+        }
+
+        .tabla-productos img {
+            border-radius: 8px;
+            object-fit: cover;
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
+        }
+
+    .btn-icono {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+
+        .btn-icono:hover {
+            color: #a46345;
+            transform: scale(1.1);
+            transition: 0.2s ease-in-out;
+        }
+
+    .btn-agregar {
+        background: #d9a07c;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 12px;
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        transition: filter 0.2s;
+    }
+
+        .btn-agregar:hover {
+            filter: brightness(0.9);
+        }
+
+    .modal-contenido input[type="text"], .modal-contenido input[type="number"], .modal-contenido select {
+        padding: 0.75rem;
+        border: 2px solid #365349;
+        border-radius: 2rem;
+        background: #fff;
+        font-size: 1rem;
+        font-family: inherit;
+        outline: none;
+    }
+
+    .formulario-producto {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+        .formulario-producto .columna {
+            flex: 1 1 45%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+
+
+    .btn-registrar {
+        display: block;
+        margin: 0 auto;
+        padding: 0.7rem 2rem;
+        border: none;
+        border-radius: 2rem;
+        background-color: #e7b298;
+        color: white;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+        .btn-registrar:hover {
+            filter: brightness(0.9);
+        }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 999;
+    }
+
+    .modal-contenido {
+        background: #fef6f1;
+        padding: 2rem;
+        border-radius: 1.5rem;
+        width: 60%;
+        max-width: 700px;
+        position: relative;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+        .modal-contenido h2 {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            color: #3f2f2f;
+        }
+
+    .cerrar-modal {
+        position: absolute;
+        top: 1rem;
+        left: 1rem;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+
+    }
+</style>

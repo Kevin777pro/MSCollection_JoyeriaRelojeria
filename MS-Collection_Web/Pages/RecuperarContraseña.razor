@@ -1,0 +1,167 @@
+﻿@page "/recuperar"
+<PageTitle>Recuperar Contraseña</PageTitle>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background-color: white;
+    }
+
+    .recuperar-container {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        text-align: center;
+    }
+
+    .header {
+        padding: 3rem 1rem 2rem;
+    }
+
+        .header i {
+            font-size: 50px;
+            color: #5a2e25;
+            margin-bottom: 1rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #5a2e25;
+            margin-bottom: 0.2rem;
+        }
+
+            .header h1 span {
+                font-weight: normal;
+                display: block;
+            }
+
+        .header p {
+            font-size: 0.95rem;
+            color: #7c5b55;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+    .recuperar-fondo {
+        background: linear-gradient(to bottom, #c59180, #f4ebe7);
+        border-top-left-radius: 50px;
+        border-top-right-radius: 50px;
+        padding: 3rem 2rem;
+        margin-top: 2rem;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .form-recuperar {
+        max-width: 420px;
+        margin: 0 auto;
+    }
+
+        .form-recuperar label {
+            display: block;
+            font-weight: 600;
+            color: white;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+
+    .input-group {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+        .input-group i {
+            position: absolute;
+            top: 50%;
+            left: 15px;
+            transform: translateY(-50%);
+            color: white;
+            font-size: 18px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.6rem 1rem 0.6rem 2.8rem;
+            border-radius: 25px;
+            border: 1px solid white;
+            background-color: transparent;
+            color: white;
+            font-size: 1rem;
+        }
+
+            .input-group input::placeholder {
+                color: #fdf1ed;
+            }
+
+    .btn-recuperar {
+        width: 100%;
+        background-color: #c59180;
+        color: white;
+        border: none;
+        border-radius: 25px;
+        padding: 0.8rem 1rem;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+        .btn-recuperar:hover {
+            background-color: #a26c5e;
+        }
+
+    .volver-link {
+        margin-top: 1.8rem;
+    }
+
+        .volver-link a {
+            text-decoration: none;
+            color: white;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            font-size: 0.95rem;
+        }
+
+            .volver-link a i {
+                font-size: 18px;
+            }
+
+    @@media (max-width: 480px) {
+        .recuperar-fondo
+
+    {
+        border-top-left-radius: 30px;
+        border-top-right-radius: 30px;
+        padding: 2rem 1.2rem;
+    }
+
+    }
+</style>
+
+<div class="recuperar-container">
+    <!-- Parte blanca superior -->
+    <div class="header">
+        <i class="bi bi-lock-fill"></i>
+        <h1>Olvidó<br /><span>su contraseña?</span></h1>
+        <p>No te preocupes, te enviaremos instrucciones de restablecimiento</p>
+    </div>
+
+    <!-- Fondo degradado inferior ancho completo -->
+    <div class="recuperar-fondo">
+        <div class="form-recuperar">
+            <label for="email">Email</label>
+            <div class="input-group">
+                <i class="bi bi-envelope-fill"></i>
+                <input type="email" id="email" placeholder="Ingresa tu Email" />
+            </div>
+            <button class="btn-recuperar">Restablecer contraseña</button>
+
+            <div class="volver-link">
+                <a href="/login"><i class="bi bi-box-arrow-in-left"></i> Regresar al Login</a>
+            </div>
+        </div>
+    </div>
+</div>
