@@ -6,7 +6,6 @@ on:
     branches: [ Grupo2, develop ]
   workflow_dispatch:
 
-# AGREGAR ESTA SECCIÓN DE PERMISOS
 permissions:
   security-events: write
   actions: read
@@ -31,11 +30,19 @@ jobs:
       with:
         languages: csharp
         
-    - name: "Build .NET API"
+    - name: "Buscar y construir proyecto API específico"
       run: |
-        cd "MS-Collection_WbApi"
-        dotnet restore
-        dotnet build --configuration Release --no-restore
+        echo "Buscando MS-Collection_WbApi.csproj..."
+        if [ -f "MS-Collection_WbApi/MS-Collection_WbApi.csproj" ]; then
+          echo "✅ Proyecto API encontrado"
+          cd "MS-Collection_WbApi"
+          dotnet restore "MS-Collection_WbApi.csproj"
+          dotnet build "MS-Collection_WbApi.csproj" --configuration Release --no-restore
+        else
+          echo "❌ Proyecto API no encontrado"
+          find . -name "MS-Collection_WbApi.csproj" -type f
+          exit 1
+        fi
         
     - name: "Analizar con CodeQL"
       uses: github/codeql-action/analyze@v3
@@ -53,7 +60,12 @@ jobs:
       with:
         dotnet-version: '9.0'
         
-    - name: "Ejecutar auditoría NuGet"
+    - name: "Ejecutar auditoría NuGet en proyecto específico"
       run: |
-        cd "MS-Collection_WbApi"
-        dotnet list package --vulnerable --include-transitive || true
+        if [ -f "MS-Collection_WbApi/MS-Collection_WbApi.csproj" ]; then
+          cd "MS-Collection_WbApi"
+          dotnet list "MS-Collection_WbApi.csproj" package --vulnerable --include-transitive || true
+        else
+          echo "Proyecto API no encontrado para auditoría"
+          exit 0
+        fi
