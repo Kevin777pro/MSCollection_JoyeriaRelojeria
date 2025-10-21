@@ -1,0 +1,59 @@
+name: "Security Scan - API Backend"
+on:
+  push:
+    branches: [ Grupo2, develop ]
+  pull_request:
+    branches: [ Grupo2, develop ]
+  workflow_dispatch:
+
+# AGREGAR ESTA SECCIÓN DE PERMISOS
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+jobs:
+  codeql-dotnet:
+    name: "CodeQL - .NET API"
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: "Checkout código"
+      uses: actions/checkout@v4
+      
+    - name: "Setup .NET"
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0'
+          
+    - name: "Inicializar CodeQL"
+      uses: github/codeql-action/init@v3
+      with:
+        languages: csharp
+        
+    - name: "Build .NET API"
+      run: |
+        cd "MS-Collection_WbApi"
+        dotnet restore
+        dotnet build --configuration Release --no-restore
+        
+    - name: "Analizar con CodeQL"
+      uses: github/codeql-action/analyze@v3
+
+  nuget-audit:
+    name: "Auditoría NuGet"
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: "Checkout código"
+      uses: actions/checkout@v4
+      
+    - name: "Setup .NET"
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0'
+        
+    - name: "Ejecutar auditoría NuGet"
+      run: |
+        cd "MS-Collection_WbApi"
+        dotnet list package --vulnerable --include-transitive || true
