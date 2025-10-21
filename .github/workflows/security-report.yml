@@ -136,7 +136,7 @@ jobs:
 
     - name: "📢 Notificar resultados API"
       run: |
-        echo "## 📊 Reporte de Seguridad - MS Collection API" >> $GITHUB_STEP_SUMMARY
+        echo "## 📊 Reportes de Seguridad - MS Collection API" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 📈 Métricas:" >> $GITHUB_STEP_SUMMARY
         echo "- **Alertas CodeQL:** ${{ fromJson(steps.code-scanning.outputs.result).total || 0 }}" >> $GITHUB_STEP_SUMMARY
