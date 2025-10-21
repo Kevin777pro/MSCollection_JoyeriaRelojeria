@@ -1,10 +1,8 @@
 name: "📊 Reporte Consolidado Seguridad API"
 on:
   workflow_run:
-    workflows:
-      - "api-security.yml"
-    types:
-      - completed
+    workflows: ["api-security"]  # ← Sin .yml
+    types: [completed]
   schedule:
     - cron: '0 2 * * 1'
   workflow_dispatch:
