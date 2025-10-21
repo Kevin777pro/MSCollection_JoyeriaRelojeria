@@ -75,7 +75,7 @@ jobs:
         
         echo "## 🚨 Hallazgos Específicos - MS Collection API" >> security-report.md
         echo "" >> security-report.md
-        echo "### Problemas Detectados por CodeQL" >> security-review.md
+        echo "### Problemas Detectados por CodeQL" >> security-report.md
         echo "1. **Desreferencia nula** - Controladores principales" >> security-report.md
         echo "2. **Propiedades no nulas** - Modelos de datos" >> security-report.md
         echo "3. **Directivas duplicadas** - Archivos varios" >> security-report.md
