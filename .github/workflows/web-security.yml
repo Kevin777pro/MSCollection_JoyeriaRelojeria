@@ -37,8 +37,9 @@ jobs:
     - name: "🔨 Restaurar y construir proyecto Web"
       run: |
         echo "Buscando MS-Collection_Web.csproj..."
-        if [ -f "MS-Collection_Web.csproj" ]; then
-          echo "✅ Proyecto Web encontrado"
+        if [ -f "MS-Collection_Web/MS-Collection_Web.csproj" ]; then
+          echo "✅ Proyecto Web encontrado en MS-Collection_Web/"
+          cd "MS-Collection_Web"
           dotnet restore "MS-Collection_Web.csproj"
           dotnet build "MS-Collection_Web.csproj" --configuration Release --no-restore
           echo "✅ Build completado exitosamente"
@@ -68,8 +69,9 @@ jobs:
         
     - name: "🔍 Ejecutar auditoría NuGet para Web"
       run: |
-        if [ -f "MS-Collection_Web.csproj" ]; then
+        if [ -f "MS-Collection_Web/MS-Collection_Web.csproj" ]; then
           echo "🔍 Ejecutando auditoría de paquetes NuGet para proyecto Web..."
+          cd "MS-Collection_Web"
           echo "=== PAQUETES VULNERABLES ==="
           dotnet list "MS-Collection_Web.csproj" package --vulnerable --include-transitive || true
           echo "=== TODOS LOS PAQUETES ==="
@@ -89,14 +91,20 @@ jobs:
     - name: "📥 Checkout código"
       uses: actions/checkout@v4
       
-    - name: "🔍 Buscar archivos JavaScript/TypeScript"
+    - name: "🔍 Buscar archivos JavaScript/TypeScript en proyecto Web"
       run: |
-        echo "🔍 Buscando archivos JavaScript/TypeScript en wwwroot..."
-        find wwwroot -name "*.js" -o -name "*.ts" | head -20 || echo "No se encontraron archivos JS/TS"
+        echo "🔍 Buscando archivos JavaScript/TypeScript en MS-Collection_Web/wwwroot..."
+        if [ -d "MS-Collection_Web/wwwroot" ]; then
+          cd "MS-Collection_Web"
+          find wwwroot -name "*.js" -o -name "*.ts" | head -20 || echo "No se encontraron archivos JS/TS en wwwroot"
+        else
+          echo "ℹ️ No se encontró la carpeta wwwroot"
+        fi
         
         echo "🔍 Buscando package.json..."
-        if [ -f "package.json" ]; then
+        if [ -f "MS-Collection_Web/package.json" ]; then
           echo "✅ package.json encontrado"
+          cd "MS-Collection_Web"
           cat package.json | jq '.dependencies' || cat package.json
         else
           echo "ℹ️ No se encontró package.json"
@@ -132,6 +140,7 @@ jobs:
             
             // Filtrar alertas específicas de Blazor/Web
             const blazorAlerts = codeScanningAlerts.data.filter(alert => 
+              alert.most_recent_instance.location.path.includes('MS-Collection_Web/') ||
               alert.most_recent_instance.location.path.includes('.razor') ||
               alert.most_recent_instance.location.path.includes('Pages/') ||
               alert.most_recent_instance.location.path.includes('Components/')
@@ -156,6 +165,7 @@ jobs:
         echo "## 📅 Fecha: $(date +'%Y-%m-%d %H:%M:%S')" >> security-report-web.md
         echo "## 🔗 Repositorio: ${{ github.repository }}" >> security-report-web.md
         echo "## 📁 Proyecto: MS-Collection_Web (Blazor)" >> security-report-web.md
+        echo "## 📂 Ubicación: MS-Collection_Web/" >> security-report-web.md
         echo "" >> security-report-web.md
         
         echo "## 📊 Métricas de Seguridad" >> security-report-web.md
@@ -170,7 +180,7 @@ jobs:
         
         echo "### Auditoría NuGet - Dependencias .NET" >> security-report-web.md
         echo "- **Estado:** Completada ✅" >> security-report-web.md
-        echo "- **Proyecto analizado:** MS-Collection_Web.csproj" >> security-report-web.md
+        echo "- **Proyecto analizado:** MS-Collection_Web/MS-Collection_Web.csproj" >> security-report-web.md
         echo "- **Vulnerabilidades:** 0 encontradas" >> security-report-web.md
         echo "" >> security-report-web.md
         
@@ -182,13 +192,20 @@ jobs:
         
         echo "## 🏗️ Estructura del Proyecto Analizada" >> security-report-web.md
         echo "" >> security-report-web.md
-        echo "### 📂 Carpetas Principales" >> security-report-web.md
-        echo "- **Layout:** Estructuras de diseño Blazor" >> security-report-web.md
-        echo "- **Models:** Modelos de datos" >> security-report-web.md
-        echo "- **Pages:** Páginas Razor/Blazor" >> security-report-web.md
-        echo "- **Services:** Servicios y lógica de negocio" >> security-report-web.md
-        echo "- **wwwroot:** Recursos estáticos y client-side" >> security-report-web.md
-        echo "- **Properties:** Configuraciones del proyecto" >> security-report-web.md
+        echo "### 📂 Carpetas Principales en MS-Collection_Web/" >> security-report-web.md
+        echo "- **Layout/:** Estructuras de diseño Blazor" >> security-report-web.md
+        echo "- **Models/:** Modelos de datos" >> security-report-web.md
+        echo "- **Pages/:** Páginas Razor/Blazor" >> security-report-web.md
+        echo "- **Services/:** Servicios y lógica de negocio" >> security-report-web.md
+        echo "- **wwwroot/:** Recursos estáticos y client-side" >> security-report-web.md
+        echo "- **Properties/:** Configuraciones del proyecto" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "### 📄 Archivos Principales" >> security-report-web.md
+        echo "- **App.razor:** Componente principal de la aplicación" >> security-report-web.md
+        echo "- **Program.cs:** Configuración y startup" >> security-report-web.md
+        echo "- **_Imports.razor:** Importaciones globales" >> security-report-web.md
+        echo "- **MS-Collection_Web.csproj:** Archivo de proyecto" >> security-report-web.md
         echo "" >> security-report-web.md
         
         echo "## 🚨 Riesgos Específicos de Blazor" >> security-report-web.md
@@ -236,7 +253,7 @@ jobs:
         echo "" >> security-report-web.md
         
         echo "---" >> security-report-web.md
-        echo "*Reporte generado automáticamente para MS-Collection_Web*" >> security-report-web.md
+        echo "*Reporte generado automáticamente para MS-Collection_Web/*" >> security-report-web.md
 
     - name: "📁 Crear resumen ejecutivo Web"
       run: |
@@ -260,6 +277,7 @@ jobs:
         echo "- ✅ Separación Models/Services" >> executive-summary-web.md
         echo "- ✅ Pages organizadas" >> executive-summary-web.md
         echo "- ✅ wwwroot para recursos estáticos" >> executive-summary-web.md
+        echo "- ✅ Proyecto en carpeta MS-Collection_Web/" >> executive-summary-web.md
 
     - name: "📤 Subir reportes Web"
       uses: actions/upload-artifact@v4
@@ -275,6 +293,7 @@ jobs:
         echo "## 🛡️ Análisis de Seguridad Web Completado" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 🌐 Proyecto: MS-Collection_Web (Blazor)" >> $GITHUB_STEP_SUMMARY
+        echo "### 📂 Ubicación: MS-Collection_Web/" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 📈 Resultados Obtenidos:" >> $GITHUB_STEP_SUMMARY
         echo "- **🔍 CodeQL Analysis:** ${{ fromJson(steps.code-scanning.outputs.result).total || 0 }} alertas totales" >> $GITHUB_STEP_SUMMARY
@@ -288,6 +307,7 @@ jobs:
         echo "- ✅ Pages (.razor)" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Models y Services" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ wwwroot (recursos estáticos)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ App.razor y Program.cs" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 🎯 Próximos Pasos Blazor:" >> $GITHUB_STEP_SUMMARY
         echo "1. Validar inputs en componentes" >> $GITHUB_STEP_SUMMARY
@@ -300,4 +320,5 @@ jobs:
       run: |
         echo "✅ Workflow de seguridad Web completado exitosamente"
         echo "📊 Reportes generados: security-report-web.md y executive-summary-web.md"
-        echo "🌐 Proyecto analizado: MS-Collection_Web (Blazor)"
+        echo "🌐 Proyecto analizado: MS-Collection_Web/ (Blazor)"
+        echo "📂 Estructura correctamente identificada"
