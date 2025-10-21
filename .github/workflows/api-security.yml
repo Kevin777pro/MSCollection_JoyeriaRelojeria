@@ -1,4 +1,4 @@
-name: "Security Scan - API Backend"
+name: "api-security.yml"
 on:
   push:
     branches: [ Grupo2, develop ]
