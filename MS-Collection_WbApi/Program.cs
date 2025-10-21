@@ -3,7 +3,7 @@ using MS_Collection_WbApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ?? Conexión a la base de datos
+// ?? Conexiï¿½n a la base de datos
 builder.Services.AddDbContext<JoyeriaMsBdContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("connectionDB")));
 
@@ -24,7 +24,7 @@ builder.Services.AddCors(options =>
 // ?? HttpClient base para consumo de API
 builder.Services.AddScoped(sp => new HttpClient
 {
-    BaseAddress = new Uri("https://localhost:44300/") // <- Asegúrate que esta sea tu API
+    BaseAddress = new Uri("https://localhost:44300/") // <- Asegï¿½rate que esta sea tu API
 });
 
 // ?? Controladores y Swagger
@@ -34,7 +34,7 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// ?? Redirigir raíz a Swagger
+// ?? Redirigir raï¿½z a Swagger
 app.MapGet("/", (HttpContext context) =>
 {
     context.Response.Redirect("/swagger/index.html", permanent: false);
@@ -42,6 +42,7 @@ app.MapGet("/", (HttpContext context) =>
 
 // ?? Middleware
 if (app.Environment.IsDevelopment())
+
 {
     app.UseSwagger();
     app.UseSwaggerUI();

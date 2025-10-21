@@ -1,4 +1,4 @@
-name: "api-security.yml"
+name: "API Security Analysis"
 on:
   push:
     branches: [ Grupo2, develop ]
