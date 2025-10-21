@@ -2,7 +2,7 @@ name: "📊 Reporte Consolidado Seguridad API"
 on:
   workflow_run:
     workflows:
-      - "Security Scan - API Backend"
+      - "Security Scan - API Backend"  # ← ESTE ES EL NAME DEL WORKFLOW
     types:
       - completed
   schedule:
