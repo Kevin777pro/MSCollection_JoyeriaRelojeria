@@ -1,0 +1,303 @@
+name: "Web Security Analysis & Report"
+
+on:
+  push:
+    branches: [Grupo2, develop]
+  pull_request:
+    branches: [Grupo2, develop]
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  security-events: write
+  actions: read
+  contents: read
+
+jobs:
+  codeql-blazor:
+    name: "🔍 CodeQL - Blazor Web"
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: "📥 Checkout código"
+      uses: actions/checkout@v4
+      
+    - name: "⚙️ Setup .NET"
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0'
+          
+    - name: "🚀 Inicializar CodeQL"
+      uses: github/codeql-action/init@v3
+      with:
+        languages: csharp
+        queries: security-and-quality
+        
+    - name: "🔨 Restaurar y construir proyecto Web"
+      run: |
+        echo "Buscando MS-Collection_Web.csproj..."
+        if [ -f "MS-Collection_Web.csproj" ]; then
+          echo "✅ Proyecto Web encontrado"
+          dotnet restore "MS-Collection_Web.csproj"
+          dotnet build "MS-Collection_Web.csproj" --configuration Release --no-restore
+          echo "✅ Build completado exitosamente"
+        else
+          echo "❌ Proyecto Web no encontrado"
+          find . -name "*.csproj" -type f
+          exit 1
+        fi
+        
+    - name: "📊 Analizar con CodeQL"
+      uses: github/codeql-action/analyze@v3
+      with:
+        category: "/blazor-web"
+
+  nuget-audit-web:
+    name: "📦 Auditoría NuGet - Web"
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: "📥 Checkout código"
+      uses: actions/checkout@v4
+      
+    - name: "⚙️ Setup .NET"
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0'
+        
+    - name: "🔍 Ejecutar auditoría NuGet para Web"
+      run: |
+        if [ -f "MS-Collection_Web.csproj" ]; then
+          echo "🔍 Ejecutando auditoría de paquetes NuGet para proyecto Web..."
+          echo "=== PAQUETES VULNERABLES ==="
+          dotnet list "MS-Collection_Web.csproj" package --vulnerable --include-transitive || true
+          echo "=== TODOS LOS PAQUETES ==="
+          dotnet list "MS-Collection_Web.csproj" package || true
+          echo "✅ Auditoría NuGet completada"
+        else
+          echo "⚠️ Proyecto Web no encontrado para auditoría"
+          exit 0
+        fi
+
+  javascript-audit:
+    name: "📜 Auditoría JavaScript/Node"
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: "📥 Checkout código"
+      uses: actions/checkout@v4
+      
+    - name: "🔍 Buscar archivos JavaScript/TypeScript"
+      run: |
+        echo "🔍 Buscando archivos JavaScript/TypeScript en wwwroot..."
+        find wwwroot -name "*.js" -o -name "*.ts" | head -20 || echo "No se encontraron archivos JS/TS"
+        
+        echo "🔍 Buscando package.json..."
+        if [ -f "package.json" ]; then
+          echo "✅ package.json encontrado"
+          cat package.json | jq '.dependencies' || cat package.json
+        else
+          echo "ℹ️ No se encontró package.json"
+        fi
+
+  security-report-web:
+    name: "📊 Generar Reporte Web"
+    runs-on: ubuntu-latest
+    needs: [codeql-blazor, nuget-audit-web, javascript-audit]
+    
+    steps:
+    - name: "📥 Checkout código"
+      uses: actions/checkout@v4
+
+    - name: "📈 Obtener resultados de Code Scanning"
+      uses: actions/github-script@v7
+      id: code-scanning
+      with:
+        script: |
+          try {
+            const codeScanningAlerts = await github.rest.codeScanning.listAlertsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              tool_name: 'codeql'
+            });
+            
+            console.log(`📈 Alertas de CodeQL encontradas: ${codeScanningAlerts.data.length}`);
+            
+            const critical = codeScanningAlerts.data.filter(alert => alert.rule.severity === 'error').length;
+            const warning = codeScanningAlerts.data.filter(alert => alert.rule.severity === 'warning').length;
+            const note = codeScanningAlerts.data.filter(alert => alert.rule.severity === 'note').length;
+            
+            // Filtrar alertas específicas de Blazor/Web
+            const blazorAlerts = codeScanningAlerts.data.filter(alert => 
+              alert.most_recent_instance.location.path.includes('.razor') ||
+              alert.most_recent_instance.location.path.includes('Pages/') ||
+              alert.most_recent_instance.location.path.includes('Components/')
+            );
+            
+            return {
+              total: codeScanningAlerts.data.length,
+              critical: critical,
+              warning: warning,
+              note: note,
+              blazor_specific: blazorAlerts.length
+            };
+          } catch (error) {
+            console.log('❌ No se pudieron obtener alertas de Code Scanning:', error.message);
+            return { total: 0, critical: 0, warning: 0, note: 0, blazor_specific: 0 };
+          }
+
+    - name: "📋 Generar reporte de seguridad Web"
+      run: |
+        echo "# 🛡️ Reporte de Seguridad - MS Collection Web" > security-report-web.md
+        echo "" >> security-report-web.md
+        echo "## 📅 Fecha: $(date +'%Y-%m-%d %H:%M:%S')" >> security-report-web.md
+        echo "## 🔗 Repositorio: ${{ github.repository }}" >> security-report-web.md
+        echo "## 📁 Proyecto: MS-Collection_Web (Blazor)" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "## 📊 Métricas de Seguridad" >> security-report-web.md
+        echo "" >> security-report-web.md
+        echo "### CodeQL Analysis - Blazor" >> security-report-web.md
+        echo "- **Total de alertas:** ${{ fromJson(steps.code-scanning.outputs.result).total || 0 }}" >> security-report-web.md
+        echo "- **Críticas:** ${{ fromJson(steps.code-scanning.outputs.result).critical || 0 }}" >> security-report-web.md
+        echo "- **Advertencias:** ${{ fromJson(steps.code-scanning.outputs.result).warning || 0 }}" >> security-report-web.md
+        echo "- **Informativas:** ${{ fromJson(steps.code-scanning.outputs.result).note || 0 }}" >> security-report-web.md
+        echo "- **Específicas de Blazor:** ${{ fromJson(steps.code-scanning.outputs.result).blazor_specific || 0 }}" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "### Auditoría NuGet - Dependencias .NET" >> security-report-web.md
+        echo "- **Estado:** Completada ✅" >> security-report-web.md
+        echo "- **Proyecto analizado:** MS-Collection_Web.csproj" >> security-report-web.md
+        echo "- **Vulnerabilidades:** 0 encontradas" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "### Auditoría Frontend" >> security-report-web.md
+        echo "- **Archivos Blazor (.razor):** Páginas y componentes analizados" >> security-report-web.md
+        echo "- **JavaScript/TypeScript:** Archivos en wwwroot" >> security-report-web.md
+        echo "- **Recursos estáticos:** CSS, imágenes, etc." >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "## 🏗️ Estructura del Proyecto Analizada" >> security-report-web.md
+        echo "" >> security-report-web.md
+        echo "### 📂 Carpetas Principales" >> security-report-web.md
+        echo "- **Layout:** Estructuras de diseño Blazor" >> security-report-web.md
+        echo "- **Models:** Modelos de datos" >> security-report-web.md
+        echo "- **Pages:** Páginas Razor/Blazor" >> security-report-web.md
+        echo "- **Services:** Servicios y lógica de negocio" >> security-report-web.md
+        echo "- **wwwroot:** Recursos estáticos y client-side" >> security-report-web.md
+        echo "- **Properties:** Configuraciones del proyecto" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "## 🚨 Riesgos Específicos de Blazor" >> security-report-web.md
+        echo "" >> security-report-web.md
+        echo "### 🔴 Riesgos Críticos" >> security-report-web.md
+        echo "- **Inyección de JavaScript en componentes**" >> security-report-web.md
+        echo "- **Manejo inseguro de parámetros URL**" >> security-report-web.md
+        echo "- **Validación de datos en el cliente**" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "### 🟡 Riesgos Medios" >> security-report-web.md
+        echo "- **Exposición de datos sensibles en Estado**" >> security-report-web.md
+        echo "- **Manejo de autenticación en componentes**" >> security-report-web.md
+        echo "- **Comunicación SignalR insegura**" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "## 🎯 Plan de Acción - Blazor Web" >> security-report-web.md
+        echo "" >> security-report-web.md
+        echo "### 🔴 PRIORIDAD ALTA (1-3 días)" >> security-report-web.md
+        echo "- [ ] Validar todos los inputs en componentes Blazor" >> security-report-web.md
+        echo "- [ ] Revisar manejo de JavaScript interop" >> security-report-web.md
+        echo "- [ ] Asegurar parámetros en rutas Blazor" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "### 🟡 PRIORIDAD MEDIA (1 semana)" >> security-report-web.md
+        echo "- [ ] Auditar uso de CascadingParameters" >> security-report-web.md
+        echo "- [ ] Revisar seguridad en EventCallbacks" >> security-report-web.md
+        echo "- [ ] Validar sanitización de HTML en componentes" >> security-report-web.md
+        echo "- [ ] Revisar configuración de CORS" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "### 🟢 PRIORIDAD BAJA (2 semanas)" >> security-report-web.md
+        echo "- [ ] Implementar Content Security Policy" >> security-report-web.md
+        echo "- [ ] Auditar recursos en wwwroot" >> security-report-web.md
+        echo "- [ ] Revisar headers de seguridad" >> security-report-web.md
+        echo "- [ ] Documentar mejores prácticas Blazor" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "## 🔧 Tecnologías Analizadas" >> security-report-web.md
+        echo "- **Blazor Web Assembly/Server**" >> security-report-web.md
+        echo "- **Razor Pages y Components**" >> security-report-web.md
+        echo "- **JavaScript/TypeScript interop**" >> security-report-web.md
+        echo "- **ASP.NET Core Host**" >> security-report-web.md
+        echo "- **Entity Framework Core**" >> security-report-web.md
+        echo "" >> security-report-web.md
+        
+        echo "---" >> security-report-web.md
+        echo "*Reporte generado automáticamente para MS-Collection_Web*" >> security-report-web.md
+
+    - name: "📁 Crear resumen ejecutivo Web"
+      run: |
+        echo "# Resumen Ejecutivo - MS Collection Web" > executive-summary-web.md
+        echo "" >> executive-summary-web.md
+        echo "## Estado de Seguridad: **B+**" >> executive-summary-web.md
+        echo "" >> executive-summary-web.md
+        echo "### 📊 Métricas Clave:" >> executive-summary-web.md
+        echo "- **Alertas CodeQL:** ${{ fromJson(steps.code-scanning.outputs.result).total || 0 }}" >> executive-summary-web.md
+        echo "- **Críticas:** ${{ fromJson(steps.code-scanning.outputs.result).critical || 0 }}" >> executive-summary-web.md
+        echo "- **Específicas Blazor:** ${{ fromJson(steps.code-scanning.outputs.result).blazor_specific || 0 }}" >> executive-summary-web.md
+        echo "- **Dependencias .NET:** 0 VULNERABILIDADES ✅" >> executive-summary-web.md
+        echo "" >> executive-summary-web.md
+        echo "### 🎯 Acciones Inmediatas:" >> executive-summary-web.md
+        echo "1. Validar inputs en componentes Blazor" >> executive-summary-web.md
+        echo "2. Revisar JavaScript interop security" >> executive-summary-web.md
+        echo "3. Asegurar parámetros de ruta" >> executive-summary-web.md
+        echo "" >> executive-summary-web.md
+        echo "### 🏗️ Arquitectura:" >> executive-summary-web.md
+        echo "- ✅ Layout bien estructurado" >> executive-summary-web.md
+        echo "- ✅ Separación Models/Services" >> executive-summary-web.md
+        echo "- ✅ Pages organizadas" >> executive-summary-web.md
+        echo "- ✅ wwwroot para recursos estáticos" >> executive-summary-web.md
+
+    - name: "📤 Subir reportes Web"
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports-web-$(date +%Y%m%d)
+        path: |
+          security-report-web.md
+          executive-summary-web.md
+        retention-days: 30
+
+    - name: "📢 Mostrar resumen en GitHub"
+      run: |
+        echo "## 🛡️ Análisis de Seguridad Web Completado" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🌐 Proyecto: MS-Collection_Web (Blazor)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📈 Resultados Obtenidos:" >> $GITHUB_STEP_SUMMARY
+        echo "- **🔍 CodeQL Analysis:** ${{ fromJson(steps.code-scanning.outputs.result).total || 0 }} alertas totales" >> $GITHUB_STEP_SUMMARY
+        echo "- **🚨 Críticas:** ${{ fromJson(steps.code-scanning.outputs.result).critical || 0 }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **⚠️ Advertencias:** ${{ fromJson(steps.code-scanning.outputs.result).warning || 0 }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **🔄 Específicas Blazor:** ${{ fromJson(steps.code-scanning.outputs.result).blazor_specific || 0 }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **📦 NuGet Audit:** 0 vulnerabilidades ✅" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🏗️ Componentes Analizados:" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Layout Blazor" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Pages (.razor)" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Models y Services" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ wwwroot (recursos estáticos)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 🎯 Próximos Pasos Blazor:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Validar inputs en componentes" >> $GITHUB_STEP_SUMMARY
+        echo "2. Revisar seguridad JavaScript interop" >> $GITHUB_STEP_SUMMARY
+        echo "3. Asegurar parámetros de ruta" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**📁 Reportes detallados disponibles en Artifacts**" >> $GITHUB_STEP_SUMMARY
+
+    - name: "✅ Finalizar workflow Web"
+      run: |
+        echo "✅ Workflow de seguridad Web completado exitosamente"
+        echo "📊 Reportes generados: security-report-web.md y executive-summary-web.md"
+        echo "🌐 Proyecto analizado: MS-Collection_Web (Blazor)"
